@@ -1,0 +1,37 @@
+{
+  "name": "livetrace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "next build",
+    "start": "cross-env NODE_ENV=production tsx server.ts",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.3.6",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.462.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "uuid": "^9.0.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^9.0.8",
+    "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.15",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.5.4"
+  }
+}
