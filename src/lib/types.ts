@@ -79,7 +79,7 @@ export interface NodeActivityEntry {
   toNode: string;
 }
 
-export type SimulationKind = "success-login" | "wrong-password" | "traffic-spike";
+export type SimulationKind = "success-login" | "wrong-password" | "traffic-spike" | "custom";
 
 export const SOCKET_PATH = "/api/socket";
 

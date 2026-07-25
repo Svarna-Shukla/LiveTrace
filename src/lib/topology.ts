@@ -99,14 +99,21 @@ export interface ResolvedEdge {
  * A trace step's fromNode/toNode may point along an edge in either direction
  * (e.g. authapi->envsecrets for the request, envsecrets->authapi for the reply).
  * Both share a single visual edge; `reversed` tells the edge which way to animate.
+ *
+ * `edges` is the structural edge list of whichever topology is currently active
+ * (built-in demo or a dynamically parsed graph) — callers must pass the live set.
  */
-export function resolveEdge(fromNode: string, toNode: string): ResolvedEdge | null {
+export function resolveEdge(
+  fromNode: string,
+  toNode: string,
+  edges: Edge<TraceEdgeData>[],
+): ResolvedEdge | null {
   const forwardId = `e-${fromNode}-${toNode}`;
   const reverseId = `e-${toNode}-${fromNode}`;
-  if (initialEdges.some((e) => e.id === forwardId)) {
+  if (edges.some((e) => e.id === forwardId)) {
     return { edgeId: forwardId, reversed: false };
   }
-  if (initialEdges.some((e) => e.id === reverseId)) {
+  if (edges.some((e) => e.id === reverseId)) {
     return { edgeId: reverseId, reversed: true };
   }
   return null;

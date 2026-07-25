@@ -30,10 +30,17 @@ export function useTraceSocket() {
   const [nodeActivity, setNodeActivity] = useState<Record<string, NodeActivityEntry[]>>({});
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [simActive, setSimActive] = useState<SimulationKind | null>(null);
+  const [customGraphActive, setCustomGraphActive] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const edgeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const simCancelRef = useRef(0);
+  // Structural baseline (ids/source/target only matter here) of whichever
+  // topology — built-in demo or a parsed custom graph — is currently active.
+  // Used for edge resolution and for restoring idle state on reset, so it
+  // stays independent of the live `nodes`/`edges` render state.
+  const topologyNodesRef = useRef<Node<ServiceNodeData>[]>(initialNodes);
+  const topologyEdgesRef = useRef<Edge<TraceEdgeData>[]>(initialEdges);
 
   const scheduleNodeRevert = useCallback(
     (nodeId: string, delay: number) => {
@@ -92,7 +99,7 @@ export function useTraceSocket() {
         step.status === "running" ? RUNNING_FAILSAFE_MS : SUCCESS_ERROR_REVERT_MS,
       );
 
-      const resolved = resolveEdge(step.fromNode, step.toNode);
+      const resolved = resolveEdge(step.fromNode, step.toNode, topologyEdgesRef.current);
       if (resolved) {
         setEdges((eds) =>
           eds.map((e) =>
@@ -176,10 +183,10 @@ export function useTraceSocket() {
 
   const triggerFlow = useCallback(
     (scenario: FlowScenario) => {
-      if (running || simActive) return;
+      if (running || simActive || customGraphActive) return;
       getSocket().emit(EVENTS.TRIGGER_FLOW, { scenario });
     },
-    [running, simActive],
+    [running, simActive, customGraphActive],
   );
 
   const runSequentialHops = useCallback(
@@ -235,25 +242,70 @@ export function useTraceSocket() {
     [recordStep],
   );
 
-  const simulateRequest = useCallback(
-    async (kind: SimulationKind) => {
-      if (running || simActive) return;
+  const runHops = useCallback(
+    async (hops: SimHop[], kind: SimulationKind) => {
       const token = ++simCancelRef.current;
       setSimActive(kind);
       try {
-        if (kind === "success-login") {
-          await runSequentialHops(SUCCESS_LOGIN_HOPS, token);
-        } else if (kind === "wrong-password") {
-          await runSequentialHops(WRONG_PASSWORD_HOPS, token);
-        } else {
-          await runTrafficSpike(token);
-        }
+        await runSequentialHops(hops, token);
       } finally {
         if (simCancelRef.current === token) setSimActive(null);
       }
     },
-    [running, simActive, runSequentialHops, runTrafficSpike],
+    [runSequentialHops],
   );
+
+  const simulateRequest = useCallback(
+    (kind: SimulationKind) => {
+      if (running || simActive || customGraphActive) return;
+      if (kind === "traffic-spike") {
+        const token = ++simCancelRef.current;
+        setSimActive(kind);
+        void runTrafficSpike(token).finally(() => {
+          if (simCancelRef.current === token) setSimActive(null);
+        });
+      } else {
+        const hops = kind === "success-login" ? SUCCESS_LOGIN_HOPS : WRONG_PASSWORD_HOPS;
+        void runHops(hops, kind);
+      }
+    },
+    [running, simActive, customGraphActive, runTrafficSpike, runHops],
+  );
+
+  const loadTopology = useCallback(
+    (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], custom: boolean) => {
+      simCancelRef.current += 1;
+      nodeTimers.current.forEach((t) => clearTimeout(t));
+      nodeTimers.current.clear();
+      edgeTimers.current.forEach((t) => clearTimeout(t));
+      edgeTimers.current.clear();
+      topologyNodesRef.current = newNodes;
+      topologyEdgesRef.current = newEdges;
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setLog([]);
+      setNodeActivity({});
+      setCurrentScenario(null);
+      setSimActive(null);
+      setSelectedNodeId(null);
+      setCustomGraphActive(custom);
+    },
+    [setEdges, setNodes],
+  );
+
+  const loadCustomGraph = useCallback(
+    (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], hops: SimHop[]) => {
+      if (running || simActive) return;
+      loadTopology(newNodes, newEdges, true);
+      void runHops(hops, "custom");
+    },
+    [running, simActive, loadTopology, runHops],
+  );
+
+  const loadDemoTopology = useCallback(() => {
+    if (running || simActive) return;
+    loadTopology(initialNodes, initialEdges, false);
+  }, [running, simActive, loadTopology]);
 
   const resetCanvas = useCallback(() => {
     simCancelRef.current += 1;
@@ -261,8 +313,8 @@ export function useTraceSocket() {
     nodeTimers.current.clear();
     edgeTimers.current.forEach((t) => clearTimeout(t));
     edgeTimers.current.clear();
-    setNodes(initialNodes);
-    setEdges(initialEdges);
+    setNodes(topologyNodesRef.current);
+    setEdges(topologyEdgesRef.current);
     setLog([]);
     setNodeActivity({});
     setCurrentScenario(null);
@@ -286,5 +338,8 @@ export function useTraceSocket() {
     setSelectedNodeId,
     simActive,
     simulateRequest,
+    customGraphActive,
+    loadCustomGraph,
+    loadDemoTopology,
   };
 }
