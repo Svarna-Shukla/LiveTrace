@@ -43,23 +43,25 @@ export default function SharedFlowView({ flow }: SharedFlowViewProps) {
   );
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-canvas">
-      <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-canvas dark:bg-slate-950">
+      <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white dark:bg-violet-600">
             <Zap size={16} />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-bold text-slate-800">LiveTrace</div>
-            <div className="text-[10.5px] text-slate-400">Shared architecture diagram · read-only</div>
+            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">LiveTrace</div>
+            <div className="text-[10.5px] text-slate-400 dark:text-slate-500">
+              Shared architecture diagram · read-only
+            </div>
           </div>
-          <span className="ml-2 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-600">
+          <span className="ml-2 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-600 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-400">
             Shared view
           </span>
         </div>
         <a
           href="/dashboard"
-          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-700"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 dark:bg-violet-600 dark:hover:bg-violet-500"
         >
           Open Full App
         </a>
@@ -71,10 +73,10 @@ export default function SharedFlowView({ flow }: SharedFlowViewProps) {
           </ReactFlowProvider>
         </div>
         {flow.steps.length > 0 && (
-          <div className="z-10 flex h-full w-[320px] shrink-0 flex-col border-l border-border bg-white/95 shadow-lg">
-            <div className="border-b border-border px-3.5 py-2.5">
-              <h2 className="text-xs font-bold text-slate-700">Execution Log</h2>
-              <p className="text-[10px] text-slate-400">Snapshot at share time</p>
+          <div className="z-10 flex h-full w-[320px] shrink-0 flex-col border-l border-border bg-white/95 shadow-lg dark:border-slate-800 dark:bg-slate-950/95">
+            <div className="border-b border-border px-3.5 py-2.5 dark:border-slate-800">
+              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-200">Execution Log</h2>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">Snapshot at share time</p>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               <ul className="space-y-1">
@@ -82,22 +84,24 @@ export default function SharedFlowView({ flow }: SharedFlowViewProps) {
                   <li
                     key={i}
                     className={clsx(
-                      "rounded-lg border-l-[3px] bg-slate-50/70 px-2.5 py-1.5",
+                      "rounded-lg border-l-[3px] bg-slate-50/70 px-2.5 py-1.5 dark:bg-slate-900/70",
                       s.status === "success" ? "border-l-emerald-400" : "border-l-red-400",
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[11px] font-semibold text-slate-700">{s.step}</span>
+                      <span className="truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                        {s.step}
+                      </span>
                       <span
                         className={clsx(
                           "shrink-0 text-[10px] font-bold",
-                          s.status === "success" ? "text-emerald-500" : "text-red-500",
+                          s.status === "success" ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400",
                         )}
                       >
                         {s.ms}ms
                       </span>
                     </div>
-                    <div className="mt-0.5 truncate text-[10px] text-slate-400">
+                    <div className="mt-0.5 truncate text-[10px] text-slate-400 dark:text-slate-500">
                       {s.from} → {s.to}
                     </div>
                   </li>

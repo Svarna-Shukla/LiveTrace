@@ -1,19 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { Edge, Node } from "@xyflow/react";
 import { AlertTriangle, CheckCircle2, FileUp, Loader2, PlayCircle, X } from "lucide-react";
 import CodeEditor from "./CodeEditor";
-import { buildDynamicTopology, CODE_PRESETS, parseCode } from "@/lib/codeParser";
-import { extractZipSource } from "@/lib/zipIngest";
-import type { SimHop } from "@/lib/simulate";
-import type { ServiceNodeData, TraceEdgeData } from "@/lib/topology";
+import { CODE_PRESETS } from "@/lib/codeParser";
+import { extractZipSource, type IngestedFile } from "@/lib/zipIngest";
+import { buildMultiFileGraphs, type MultiFileResult } from "@/lib/multiFile";
 import clsx from "clsx";
 
 interface CodeIngestModalProps {
   open: boolean;
   onClose: () => void;
-  onRun: (nodes: Node<ServiceNodeData>[], edges: Edge<TraceEdgeData>[], hops: SimHop[], sourceCode: string) => void;
+  onRun: (multi: MultiFileResult, combinedSourceCode: string) => void;
 }
 
 const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.zip,.env";
@@ -23,6 +21,7 @@ type NoticeTone = "warning" | "success";
 export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModalProps) {
   const [code, setCode] = useState("");
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<IngestedFile[] | null>(null);
   const [notice, setNotice] = useState<{ tone: NoticeTone; message: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -35,6 +34,7 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     if (!preset) return;
     setCode(preset.code);
     setActivePreset(id);
+    setPendingFiles(null);
     setNotice(null);
   };
 
@@ -51,6 +51,7 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     if (!file) return;
 
     setActivePreset(null);
+    setPendingFiles(null);
     setIsProcessing(true);
     setNotice(null);
 
@@ -65,15 +66,17 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
           return;
         }
         setCode(result.combined);
+        setPendingFiles(result.files);
         setNotice({
           tone: "success",
           message: `Extracted ${result.fileCount} file${result.fileCount === 1 ? "" : "s"} from ${file.name}${
             result.skipped > 0 ? ` (${result.skipped} skipped)` : ""
-          }${result.truncated ? " — archive was large, some files were truncated" : ""}.`,
+          }${result.truncated ? " — archive was large, some files were truncated" : ""}. Each file will appear in the Explorer sidebar.`,
         });
       } else {
         const text = await readTextFile(file);
         setCode(text);
+        setPendingFiles([{ path: file.name, content: text }]);
       }
     } catch (err) {
       setNotice({
@@ -101,9 +104,12 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
       setNotice({ tone: "warning", message: "Paste or upload some code first." });
       return;
     }
-    const parsed = parseCode(code);
-    const topology = buildDynamicTopology(parsed);
-    if (!topology) {
+
+    const preset = CODE_PRESETS.find((p) => p.id === activePreset);
+    const files: IngestedFile[] = pendingFiles ?? [{ path: preset?.fileName ?? "snippet.js", content: code }];
+    const multi = buildMultiFileGraphs(files);
+
+    if (!multi.combined) {
       setNotice({
         tone: "warning",
         message:
@@ -111,7 +117,7 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
       });
       return;
     }
-    onRun(topology.nodes, topology.edges, topology.hops, code);
+    onRun(multi, code);
     setNotice(null);
     onClose();
   };
@@ -119,17 +125,17 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="animate-fade-in-up relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div className="animate-fade-in-up relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">Upload / Paste Codebase</h2>
-            <p className="text-[11px] text-slate-400">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Upload / Paste Codebase</h2>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
               Parse your own code into a live execution graph and run a trace through it.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <X size={16} />
           </button>
@@ -137,7 +143,9 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mb-3">
-            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Presets</div>
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Presets
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {CODE_PRESETS.map((preset) => (
                 <button
@@ -146,8 +154,8 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
                   className={clsx(
                     "rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors",
                     activePreset === preset.id
-                      ? "border-slate-800 bg-slate-800 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                      ? "border-slate-800 bg-slate-800 text-white dark:border-violet-600 dark:bg-violet-600"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700",
                   )}
                 >
                   {preset.label}
@@ -173,6 +181,7 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
               onChange={(v) => {
                 setCode(v);
                 setActivePreset(null);
+                setPendingFiles(null);
               }}
               placeholder={"Paste a route handler, snippet, or file contents here… (or drag & drop a .zip / file)"}
             />
@@ -199,12 +208,12 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
             >
               <FileUp size={13} />
               Upload file
             </button>
-            <span className="text-[10.5px] text-slate-400">
+            <span className="text-[10.5px] text-slate-400 dark:text-slate-500">
               .js · .ts · .py · .json · .env · .zip (drag &amp; drop supported)
             </span>
             <input
@@ -221,8 +230,8 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
               className={clsx(
                 "mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11.5px]",
                 notice.tone === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-amber-200 bg-amber-50 text-amber-700",
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300",
               )}
             >
               {notice.tone === "success" ? (
@@ -235,10 +244,10 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3.5">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3.5 dark:border-slate-800">
           <button
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100"
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             Cancel
           </button>

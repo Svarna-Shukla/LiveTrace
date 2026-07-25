@@ -11,10 +11,37 @@ body {
 
 body {
   background-color: #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+
+html.dark body {
+  background-color: #020617;
 }
 
 .react-flow__attribution {
   display: none;
+}
+
+html.dark .react-flow__background {
+  background-color: #020617;
+}
+
+html.dark .react-flow__background circle {
+  fill: #334155;
+}
+
+html.dark .react-flow__edge-path {
+  stroke: #475569 !important;
+}
+
+html.dark .react-flow__controls button {
+  background-color: #0f172a;
+  border-color: #1e293b;
+  fill: #cbd5e1;
+}
+
+html.dark .react-flow__controls button:hover {
+  background-color: #1e293b;
 }
 
 /* Print-to-PDF support for the AI Audit report — hides everything except

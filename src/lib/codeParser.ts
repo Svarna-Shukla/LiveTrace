@@ -264,6 +264,7 @@ export function buildDynamicTopology(result: ParseResult): DynamicTopology | nul
 export interface CodePreset {
   id: string;
   label: string;
+  fileName: string;
   code: string;
 }
 
@@ -271,6 +272,7 @@ export const CODE_PRESETS: CodePreset[] = [
   {
     id: "express",
     label: "Node.js Express App",
+    fileName: "app.js",
     code: `const express = require('express');
 const app = express();
 
@@ -295,6 +297,7 @@ module.exports = app;
   {
     id: "nextjs",
     label: "Next.js Route Handler",
+    fileName: "route.ts",
     code: `import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -319,6 +322,7 @@ export async function GET() {
   {
     id: "fastapi",
     label: "Python FastAPI",
+    fileName: "main.py",
     code: `from fastapi import FastAPI
 import os
 from database import db_session

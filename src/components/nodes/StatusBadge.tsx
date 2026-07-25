@@ -8,17 +8,18 @@ export default function StatusBadge({ status, overrideLabel }: { status: NodeSta
 
   const config: Record<Exclude<NodeStatus, "idle">, { className: string; icon: React.ReactNode; label: string }> = {
     running: {
-      className: "bg-blue-50 text-blue-600 border-blue-200",
+      className: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800",
       icon: <Loader2 size={12} className="animate-spin" />,
       label: "Running",
     },
     success: {
-      className: "bg-emerald-50 text-emerald-600 border-emerald-200",
+      className:
+        "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
       icon: <CheckCircle2 size={12} />,
       label: "Success",
     },
     error: {
-      className: "bg-red-50 text-red-600 border-red-200",
+      className: "bg-red-50 text-red-600 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800",
       icon: <AlertCircle size={12} />,
       label: "Error",
     },

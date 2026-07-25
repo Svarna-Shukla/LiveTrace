@@ -8,31 +8,17 @@ interface ControlPanelProps {
   connected: boolean;
   running: boolean;
   currentScenario: FlowScenario | null;
-  disabled?: boolean;
   onTrigger: (scenario: FlowScenario) => void;
   onReset: () => void;
 }
 
-export default function ControlPanel({
-  connected,
-  running,
-  currentScenario,
-  disabled,
-  onTrigger,
-  onReset,
-}: ControlPanelProps) {
-  const scenariosDisabled = running || disabled;
-
+export default function ControlPanel({ connected, running, currentScenario, onTrigger, onReset }: ControlPanelProps) {
   return (
-    <div className="z-10 flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border bg-white/95 p-3.5 shadow-lg backdrop-blur">
+    <div className="z-10 flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border bg-white/95 p-3.5 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div className="mb-3">
-        <h2 className="text-xs font-bold text-slate-700">Scenarios</h2>
-        <p className="text-[10.5px] text-slate-400">
-          {disabled
-            ? "Unavailable while a custom graph is loaded."
-            : connected
-              ? "Server-driven demo flows"
-              : "Local mode — running client-side"}
+        <h2 className="text-xs font-bold text-slate-700 dark:text-slate-200">Scenarios</h2>
+        <p className="text-[10.5px] text-slate-400 dark:text-slate-500">
+          {connected ? "Server-driven demo flows" : "Local mode — running client-side"}
         </p>
       </div>
 
@@ -43,12 +29,12 @@ export default function ControlPanel({
             <button
               key={scenario.id}
               onClick={() => onTrigger(scenario.id)}
-              disabled={scenariosDisabled}
+              disabled={running}
               className={clsx(
                 "group w-full rounded-lg border px-3 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
                 isActive
-                  ? "border-blue-300 bg-blue-50"
-                  : "border-border bg-white hover:border-slate-300 hover:bg-slate-50",
+                  ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950"
+                  : "border-border bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800",
               )}
             >
               <div className="flex items-center gap-2">
@@ -58,10 +44,12 @@ export default function ControlPanel({
                     scenario.tone === "success" ? "bg-emerald-400" : "bg-red-400",
                   )}
                 />
-                <span className="text-xs font-semibold text-slate-700">{scenario.label}</span>
-                {isActive && <Activity size={11} className="ml-auto animate-pulse text-blue-500" />}
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{scenario.label}</span>
+                {isActive && <Activity size={11} className="ml-auto animate-pulse text-blue-500 dark:text-blue-400" />}
               </div>
-              <p className="mt-0.5 pl-3.5 text-[10.5px] leading-snug text-slate-400">{scenario.description}</p>
+              <p className="mt-0.5 pl-3.5 text-[10.5px] leading-snug text-slate-400 dark:text-slate-500">
+                {scenario.description}
+              </p>
             </button>
           );
         })}
@@ -70,7 +58,7 @@ export default function ControlPanel({
       <button
         onClick={onReset}
         disabled={running}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-slate-50 py-1.5 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-slate-50 py-1.5 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
       >
         <RotateCcw size={12} />
         Reset Canvas

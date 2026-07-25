@@ -14,7 +14,13 @@ function isCodeFile(path: string): boolean {
   return CODE_EXTENSIONS.some((ext) => base.toLowerCase().endsWith(ext));
 }
 
+export interface IngestedFile {
+  path: string;
+  content: string;
+}
+
 export interface ZipExtractResult {
+  files: IngestedFile[];
   combined: string;
   fileCount: number;
   skipped: number;
@@ -23,17 +29,18 @@ export interface ZipExtractResult {
 
 /**
  * Recursively pulls text out of a .zip archive: code/config files only,
- * skipping node_modules/.git/build output and anything binary-looking
- * (by extension whitelist). Files are concatenated with a path-comment
- * separator so the regex parser can still find route/env/db patterns
- * across the whole project.
+ * skipping node_modules/.git/build output and anything binary-looking (by
+ * extension whitelist — images, PDFs, etc. are never in CODE_EXTENSIONS so
+ * they're excluded automatically). Returns each file separately (so the
+ * sidebar can render a per-file tree/flowchart) as well as a concatenated
+ * `combined` string for the editor preview and whole-codebase audit.
  */
 export async function extractZipSource(file: File | Blob): Promise<ZipExtractResult> {
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files).filter((entry) => !entry.dir);
 
+  const files: IngestedFile[] = [];
   let combined = "";
-  let fileCount = 0;
   let skipped = 0;
   let truncated = false;
 
@@ -46,15 +53,15 @@ export async function extractZipSource(file: File | Blob): Promise<ZipExtractRes
       skipped++;
       continue;
     }
-    if (fileCount >= MAX_FILES || combined.length >= MAX_TOTAL_CHARS) {
+    if (files.length >= MAX_FILES || combined.length >= MAX_TOTAL_CHARS) {
       truncated = true;
       skipped++;
       continue;
     }
     const text = await entry.async("string");
+    files.push({ path, content: text });
     combined += `\n// ---- ${path} ----\n${text}\n`;
-    fileCount++;
   }
 
-  return { combined: combined.trim(), fileCount, skipped, truncated };
+  return { files, combined: combined.trim(), fileCount: files.length, skipped, truncated };
 }

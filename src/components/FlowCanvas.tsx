@@ -53,12 +53,15 @@ export default function FlowCanvas({
       minZoom={0.4}
       maxZoom={1.5}
       proOptions={{ hideAttribution: true }}
-      className="bg-canvas"
+      className="bg-canvas dark:bg-slate-950"
     >
       <Background variant={BackgroundVariant.Dots} color="#CBD5E1" gap={20} size={1.4} />
-      <Controls className="!bottom-4 !left-4 !rounded-lg !border !border-border !shadow-md" showInteractive={false} />
+      <Controls
+        className="!bottom-4 !left-4 !rounded-lg !border !border-border !shadow-md dark:!border-slate-700"
+        showInteractive={false}
+      />
       <MiniMap
-        className="!bottom-4 !right-4 !rounded-lg !border !border-border !bg-white"
+        className="!bottom-4 !right-4 !rounded-lg !border !border-border !bg-white dark:!border-slate-700 dark:!bg-slate-900"
         maskColor="rgba(241, 245, 249, 0.6)"
         nodeColor="#CBD5E1"
         pannable

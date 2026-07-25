@@ -6,6 +6,7 @@ import { getSocket } from "@/lib/socket-client";
 import { initialEdges, initialNodes, resolveEdge, type ServiceNodeData, type TraceEdgeData } from "@/lib/topology";
 import { buildDynamicHops, buildDynamicSpikeHop, type SimHop } from "@/lib/simulate";
 import { buildScenarioHops } from "@/lib/scenarioHops";
+import type { FileGraphEntry, MultiFileResult } from "@/lib/multiFile";
 import {
   EVENTS,
   type ExecutionStep,
@@ -33,6 +34,8 @@ export function useTraceSocket() {
   const [simActive, setSimActive] = useState<SimulationKind | null>(null);
   const [customGraphActive, setCustomGraphActive] = useState(false);
   const [lastIngestedSource, setLastIngestedSource] = useState<string | null>(null);
+  const [ingestedFiles, setIngestedFiles] = useState<FileGraphEntry[]>([]);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const edgeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -44,6 +47,9 @@ export function useTraceSocket() {
   // idle state on reset, so it stays independent of the live render state.
   const topologyNodesRef = useRef<Node<ServiceNodeData>[]>(initialNodes);
   const topologyEdgesRef = useRef<Edge<TraceEdgeData>[]>(initialEdges);
+  // Full per-file + combined graph set from the last multi-file ingest, kept
+  // around so selectFile() can switch the canvas without re-parsing.
+  const multiFileRef = useRef<MultiFileResult | null>(null);
 
   const scheduleNodeRevert = useCallback(
     (nodeId: string, delay: number) => {
@@ -336,18 +342,55 @@ export function useTraceSocket() {
   );
 
   const loadCustomGraph = useCallback(
-    (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], hops: SimHop[], sourceCode: string) => {
-      if (running || simActive) return;
-      loadTopology(newNodes, newEdges, true);
-      setLastIngestedSource(sourceCode);
-      void runHops(hops, "custom");
+    (multi: MultiFileResult, combinedSourceCode: string) => {
+      if (running || simActive || !multi.combined) return;
+      loadTopology(multi.combined.nodes, multi.combined.edges, true);
+      multiFileRef.current = multi;
+      setIngestedFiles(multi.files);
+      setSelectedFilePath(null);
+      setLastIngestedSource(combinedSourceCode);
+      void runHops(multi.combined.hops, "custom");
     },
     [running, simActive, loadTopology, runHops],
+  );
+
+  // Switches the canvas to a single file's own mini graph (path) or back to
+  // the merged view (null), without discarding the custom-graph/file-tree state.
+  const selectFile = useCallback(
+    (path: string | null) => {
+      if (running || simActive) return;
+      const multi = multiFileRef.current;
+      if (!multi) return;
+      const topology =
+        path === null
+          ? multi.combined
+          : (multi.files.find((f) => f.file.path === path)?.topology ?? { nodes: [], edges: [], hops: [] });
+      if (!topology) return;
+
+      simCancelRef.current += 1;
+      nodeTimers.current.forEach((t) => clearTimeout(t));
+      nodeTimers.current.clear();
+      edgeTimers.current.forEach((t) => clearTimeout(t));
+      edgeTimers.current.clear();
+      topologyNodesRef.current = topology.nodes;
+      topologyEdgesRef.current = topology.edges;
+      setNodes(topology.nodes);
+      setEdges(topology.edges);
+      setLog([]);
+      setNodeActivity({});
+      setSimActive(null);
+      setSelectedNodeId(null);
+      setSelectedFilePath(path);
+    },
+    [running, simActive, setEdges, setNodes],
   );
 
   const loadDemoTopology = useCallback(() => {
     if (running || simActive) return;
     loadTopology(initialNodes, initialEdges, false);
+    multiFileRef.current = null;
+    setIngestedFiles([]);
+    setSelectedFilePath(null);
     setLastIngestedSource(null);
   }, [running, simActive, loadTopology]);
 
@@ -386,5 +429,8 @@ export function useTraceSocket() {
     loadCustomGraph,
     loadDemoTopology,
     lastIngestedSource,
+    ingestedFiles,
+    selectedFilePath,
+    selectFile,
   };
 }

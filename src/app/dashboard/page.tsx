@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import FlowCanvas from "@/components/FlowCanvas";
 import ControlPanel from "@/components/ControlPanel";
+import FileExplorerPanel from "@/components/FileExplorerPanel";
 import EventLog from "@/components/EventLog";
 import SimulateToolbar from "@/components/SimulateToolbar";
 import NodeInspectorDrawer from "@/components/NodeInspectorDrawer";
@@ -36,6 +37,9 @@ export default function DashboardPage() {
     loadCustomGraph,
     loadDemoTopology,
     lastIngestedSource,
+    ingestedFiles,
+    selectedFilePath,
+    selectFile,
   } = useTraceSocket();
 
   const [ingestOpen, setIngestOpen] = useState(false);
@@ -69,11 +73,20 @@ export default function DashboardPage() {
 
   const busy = running || simActive !== null;
 
+  const handleRunAll = useCallback(() => {
+    selectFile(null);
+    simulateRequest("success-login");
+  }, [selectFile, simulateRequest]);
+
+  const handleSimulateRoute = useCallback(() => {
+    simulateRequest("success-login");
+  }, [simulateRequest]);
+
   if (sharedFlow === "checking") return null;
   if (sharedFlow) return <SharedFlowView flow={sharedFlow} />;
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-canvas">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-canvas dark:bg-slate-950">
       <TopNavBar
         connected={connected}
         customGraphActive={customGraphActive}
@@ -84,14 +97,24 @@ export default function DashboardPage() {
         onAudit={() => setAuditOpen(true)}
       />
       <main className="flex min-h-0 flex-1 overflow-hidden">
-        <ControlPanel
-          connected={connected}
-          running={busy}
-          currentScenario={currentScenario}
-          disabled={customGraphActive}
-          onTrigger={triggerFlow}
-          onReset={resetCanvas}
-        />
+        {customGraphActive ? (
+          <FileExplorerPanel
+            files={ingestedFiles}
+            selectedFilePath={selectedFilePath}
+            onSelectFile={selectFile}
+            onRunAll={handleRunAll}
+            onSimulateRoute={handleSimulateRoute}
+            busy={busy}
+          />
+        ) : (
+          <ControlPanel
+            connected={connected}
+            running={busy}
+            currentScenario={currentScenario}
+            onTrigger={triggerFlow}
+            onReset={resetCanvas}
+          />
+        )}
         <div className="relative h-full flex-1">
           <SimulateToolbar simActive={simActive} disabled={busy} onSimulate={simulateRequest} />
           <ReactFlowProvider>
