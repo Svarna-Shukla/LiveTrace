@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileUp, FolderUp, Loader2, PlayCircle, X } from "lucide-react";
 import CodeEditor from "./CodeEditor";
 import { CODE_PRESETS } from "@/lib/codeParser";
-import { extractZipSource, type IngestedFile } from "@/lib/zipIngest";
-import { extractFolderSource } from "@/lib/folderIngest";
+import type { IngestedFile } from "@/lib/zipIngest";
+import { ingestAnyFiles } from "@/lib/ingestAny";
 import { buildMultiFileGraphs, type MultiFileResult } from "@/lib/multiFile";
 import clsx from "clsx";
 
@@ -16,10 +16,6 @@ interface CodeIngestModalProps {
 }
 
 const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.go,.zip,.env";
-
-/** `webkitRelativePath` is only populated for folder selections/drops. */
-const hasRelativePath = (file: File): boolean =>
-  Boolean((file as File & { webkitRelativePath?: string }).webkitRelativePath);
 
 type NoticeTone = "warning" | "success";
 
@@ -44,14 +40,6 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     setNotice(null);
   };
 
-  const readTextFile = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-      reader.readAsText(file);
-    });
-
   const handleFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (list.length === 0) return;
@@ -62,51 +50,24 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     setNotice(null);
 
     try {
-      const isFolderSelection = list.length > 1 || hasRelativePath(list[0]);
-
-      if (isFolderSelection) {
-        const result = await extractFolderSource(list);
-        if (result.fileCount === 0) {
-          setNotice({
-            tone: "warning",
-            message:
-              "No readable code files found in that folder (after skipping node_modules/.git/.next/dist/build and binaries).",
-          });
-          return;
-        }
-        setCode(result.combined);
-        setPendingFiles(result.files);
+      const result = await ingestAnyFiles(list);
+      if (result.fileCount === 0) {
         setNotice({
-          tone: "success",
-          message: `Loaded ${result.fileCount} file${result.fileCount === 1 ? "" : "s"} from the folder${
-            result.skipped > 0 ? ` (${result.skipped} skipped)` : ""
-          }${result.truncated ? " — folder was large, some files were truncated" : ""}. Each file will appear in the Explorer sidebar.`,
+          tone: "warning",
+          message:
+            "No readable code files found in that upload (after skipping node_modules/.git/.next/dist/build and binaries).",
         });
         return;
       }
-
-      const file = list[0];
-      if (file.name.toLowerCase().endsWith(".zip")) {
-        const result = await extractZipSource(file);
-        if (result.fileCount === 0) {
-          setNotice({
-            tone: "warning",
-            message: "No readable code files found in that archive (after skipping node_modules/.git/binaries).",
-          });
-          return;
-        }
-        setCode(result.combined);
-        setPendingFiles(result.files);
+      setCode(result.combined);
+      setPendingFiles(result.files);
+      if (result.fileCount > 1) {
         setNotice({
           tone: "success",
-          message: `Extracted ${result.fileCount} file${result.fileCount === 1 ? "" : "s"} from ${file.name}${
-            result.skipped > 0 ? ` (${result.skipped} skipped)` : ""
-          }${result.truncated ? " — archive was large, some files were truncated" : ""}. Each file will appear in the Explorer sidebar.`,
+          message: `Loaded ${result.fileCount} files${result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}${
+            result.truncated ? " — upload was large, some files were truncated" : ""
+          }. Each file will appear in the Explorer sidebar.`,
         });
-      } else {
-        const text = await readTextFile(file);
-        setCode(text);
-        setPendingFiles([{ path: file.name, content: text }]);
       }
     } catch (err) {
       setNotice({

@@ -106,6 +106,43 @@ export function buildDynamicHops(
   });
 }
 
+/**
+ * Right-skewed latency, but shifted upward as `rate` (requests/sec, 1-100)
+ * rises — at rate=1 this matches `randomLatencyMs`'s mostly-fast/moderate
+ * spread; at rate=100 nearly every hop clears the 300ms "slow" heatmap
+ * threshold, visually showing the graph degrading under load.
+ */
+export function randomCongestedLatencyMs(rate: number): number {
+  const congestion = Math.min(1, Math.max(0, (rate - 1) / 99));
+  const base = 20 + Math.random() * Math.random() * 480;
+  const congestionShift = congestion * (300 + Math.random() * 600);
+  return Math.round(base + congestionShift);
+}
+
+/** One synthetic hop for the Load Test generator — like a spike burst, but its
+ * error rate and latency both scale with the current requests/sec rate. */
+export function buildLoadTestHop(
+  nodes: Node<ServiceNodeData>[],
+  edges: Edge<TraceEdgeData>[],
+  rate: number,
+  index: number,
+): SimHop | null {
+  if (edges.length === 0) return null;
+  const edge = edges[Math.floor(Math.random() * edges.length)];
+  const congestion = Math.min(1, Math.max(0, (rate - 1) / 99));
+  const errorChance = 0.03 + congestion * 0.25;
+  const outcome: "success" | "error" = Math.random() < errorChance ? "error" : "success";
+  const targetLabel = labelFor(nodes, edge.target);
+  return {
+    fromNode: edge.source,
+    toNode: edge.target,
+    stepName: `${outcome === "success" ? "LOAD_REQ" : "LOAD_ERR"}_${index + 1}`,
+    payload: { requestId: `load_${Date.now()}_${index}`, target: targetLabel, rate },
+    latencyMs: randomCongestedLatencyMs(rate),
+    outcome,
+  };
+}
+
 /** One random burst hop for the "traffic spike" simulation, sampled from the live edge set. */
 export function buildDynamicSpikeHop(
   nodes: Node<ServiceNodeData>[],

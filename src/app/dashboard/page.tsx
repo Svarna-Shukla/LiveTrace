@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import clsx from "clsx";
 import { ReactFlowProvider } from "@xyflow/react";
 import FlowCanvas from "@/components/FlowCanvas";
 import ControlPanel from "@/components/ControlPanel";
@@ -14,8 +15,12 @@ import CodeIngestModal from "@/components/CodeIngestModal";
 import ShareModal from "@/components/ShareModal";
 import SharedFlowView from "@/components/SharedFlowView";
 import AiAuditModal from "@/components/AiAuditModal";
+import ArchitectureDiffModal from "@/components/ArchitectureDiffModal";
+import ReplayTimeline from "@/components/ReplayTimeline";
 import { decodeSharedFlow, type SharedFlow } from "@/lib/shareCodec";
 import { useTraceSocket } from "@/hooks/useTraceSocket";
+import { useReplayTimeline } from "@/hooks/useReplayTimeline";
+import { computeReplayState } from "@/lib/replay";
 
 export default function DashboardPage() {
   const {
@@ -41,11 +46,30 @@ export default function DashboardPage() {
     ingestedFiles,
     selectedFilePath,
     selectFile,
+    loadTestActive,
+    loadTestRate,
+    startLoadTest,
+    stopLoadTest,
+    setLoadTestRate,
+    topologyNodes,
+    topologyEdges,
   } = useTraceSocket();
+
+  const replay = useReplayTimeline(log);
+  const canvasState = useMemo(
+    () =>
+      replay.isLive
+        ? { nodes, edges }
+        : computeReplayState(topologyNodes, topologyEdges, replay.chronological, replay.effectiveIndex),
+    [replay.isLive, replay.chronological, replay.effectiveIndex, nodes, edges, topologyNodes, topologyEdges],
+  );
 
   const [ingestOpen, setIngestOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileLogOpen, setMobileLogOpen] = useState(false);
   const [sharedFlow, setSharedFlow] = useState<SharedFlow | null | "checking">("checking");
 
   useEffect(() => {
@@ -102,46 +126,97 @@ export default function DashboardPage() {
         onLoadDemo={loadDemoTopology}
         onShare={() => setShareOpen(true)}
         onAudit={() => setAuditOpen(true)}
+        onCompareArchitecture={() => setCompareOpen(true)}
+        onToggleSidebar={() => setMobileSidebarOpen((v) => !v)}
+        onToggleLog={() => setMobileLogOpen((v) => !v)}
       />
-      <main className="flex min-h-0 flex-1 overflow-hidden">
-        {customGraphActive ? (
-          <FileExplorerPanel
-            files={ingestedFiles}
-            selectedFilePath={selectedFilePath}
-            onSelectFile={selectFile}
-            onRunAll={handleRunAll}
-            onSimulateRoute={handleSimulateRoute}
-            busy={busy}
-          />
-        ) : (
-          <ControlPanel
-            connected={connected}
-            running={busy}
-            currentScenario={currentScenario}
-            onTrigger={triggerFlow}
-            onReset={resetCanvas}
+      <main className="relative flex min-h-0 flex-1 overflow-hidden">
+        {(mobileSidebarOpen || mobileLogOpen) && (
+          <div
+            className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[1px] md:hidden"
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setMobileLogOpen(false);
+            }}
           />
         )}
+
+        <div
+          className={clsx(
+            "fixed inset-y-0 left-0 z-40 h-full transition-transform duration-300 ease-out md:static md:z-auto md:shrink-0 md:translate-x-0",
+            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          {customGraphActive ? (
+            <FileExplorerPanel
+              files={ingestedFiles}
+              selectedFilePath={selectedFilePath}
+              onSelectFile={selectFile}
+              onRunAll={handleRunAll}
+              onSimulateRoute={handleSimulateRoute}
+              busy={busy}
+            />
+          ) : (
+            <ControlPanel
+              connected={connected}
+              running={busy}
+              currentScenario={currentScenario}
+              onTrigger={triggerFlow}
+              onReset={resetCanvas}
+            />
+          )}
+        </div>
+
         <div className="relative h-full flex-1">
           {showCodeViewer && selectedFileEntry ? (
             <CodeViewerPanel entry={selectedFileEntry} />
           ) : (
             <>
-              <SimulateToolbar simActive={simActive} disabled={busy} onSimulate={simulateRequest} />
+              <SimulateToolbar
+                simActive={simActive}
+                disabled={busy}
+                onSimulate={simulateRequest}
+                loadTestActive={loadTestActive}
+                loadTestRate={loadTestRate}
+                onStartLoadTest={startLoadTest}
+                onStopLoadTest={stopLoadTest}
+                onChangeLoadTestRate={setLoadTestRate}
+              />
               <ReactFlowProvider>
                 <FlowCanvas
-                  nodes={nodes}
-                  edges={edges}
+                  nodes={canvasState.nodes}
+                  edges={canvasState.edges}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
                   onNodeClick={handleNodeClick}
                   onPaneClick={handleCloseDrawer}
                 />
               </ReactFlowProvider>
+              <ReplayTimeline
+                chronological={replay.chronological}
+                effectiveIndex={replay.effectiveIndex}
+                isLive={replay.isLive}
+                playing={replay.playing}
+                speed={replay.speed}
+                onSeek={replay.seek}
+                onStepBack={replay.stepBack}
+                onStepForward={replay.stepForward}
+                onTogglePlay={replay.togglePlay}
+                onGoLive={replay.goLive}
+                onSetSpeed={replay.setSpeed}
+              />
             </>
           )}
         </div>
-        <EventLog log={log} />
+
+        <div
+          className={clsx(
+            "fixed inset-y-0 right-0 z-40 h-full transition-transform duration-300 ease-out md:static md:z-auto md:shrink-0 md:translate-x-0",
+            mobileLogOpen ? "translate-x-0" : "translate-x-full",
+          )}
+        >
+          <EventLog log={log} />
+        </div>
       </main>
       <NodeInspectorDrawer node={selectedNode} activity={selectedActivity} onClose={handleCloseDrawer} />
       <CodeIngestModal open={ingestOpen} onClose={() => setIngestOpen(false)} onRun={loadCustomGraph} />
@@ -154,6 +229,7 @@ export default function DashboardPage() {
         nodeActivity={nodeActivity}
         graphLabel={customGraphActive ? "Custom Graph" : "Demo Topology"}
       />
+      <ArchitectureDiffModal open={compareOpen} onClose={() => setCompareOpen(false)} />
     </div>
   );
 }

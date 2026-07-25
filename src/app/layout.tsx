@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LiveTrace — Real-Time Execution Visualizer",
   description: "Real-time, interactive execution tracing canvas for web application request flows.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 const NO_FLASH_THEME_SCRIPT = `

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEdgesState, useNodesState, type Edge, type Node } from "@xyflow/react";
 import { getSocket } from "@/lib/socket-client";
 import { initialEdges, initialNodes, resolveEdge, type ServiceNodeData, type TraceEdgeData } from "@/lib/topology";
-import { buildDynamicHops, buildDynamicSpikeHop, type SimHop } from "@/lib/simulate";
+import { buildDynamicHops, buildDynamicSpikeHop, buildLoadTestHop, type SimHop } from "@/lib/simulate";
 import { buildScenarioHops } from "@/lib/scenarioHops";
 import type { FileGraphEntry, MultiFileResult } from "@/lib/multiFile";
 import {
@@ -33,6 +33,8 @@ export function useTraceSocket() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [simActive, setSimActive] = useState<SimulationKind | null>(null);
   const [customGraphActive, setCustomGraphActive] = useState(false);
+  const [loadTestActive, setLoadTestActive] = useState(false);
+  const [loadTestRate, setLoadTestRateState] = useState(10);
   const [lastIngestedSource, setLastIngestedSource] = useState<string | null>(null);
   const [ingestedFiles, setIngestedFiles] = useState<FileGraphEntry[]>([]);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
@@ -50,6 +52,12 @@ export function useTraceSocket() {
   // Full per-file + combined graph set from the last multi-file ingest, kept
   // around so selectFile() can switch the canvas without re-parsing.
   const multiFileRef = useRef<MultiFileResult | null>(null);
+  // Load Test generator: refs (not state) so the self-rescheduling timer
+  // always reads the latest rate/active flag without stale closures.
+  const loadTestActiveRef = useRef(false);
+  const loadTestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadTestRateRef = useRef(10);
+  const loadTestSeqRef = useRef(0);
 
   const scheduleNodeRevert = useCallback(
     (nodeId: string, delay: number) => {
@@ -320,9 +328,71 @@ export function useTraceSocket() {
     [running, simActive, runTrafficSpike, runHops],
   );
 
+  const runLoadTestTick = useCallback(() => {
+    if (!loadTestActiveRef.current) return;
+    const hop = buildLoadTestHop(
+      topologyNodesRef.current,
+      topologyEdgesRef.current,
+      loadTestRateRef.current,
+      loadTestSeqRef.current++,
+    );
+    if (hop) {
+      const id = `load-${Date.now()}-${loadTestSeqRef.current}`;
+      const base: Omit<ExecutionStep, "status" | "payload"> = {
+        id,
+        fromNode: hop.fromNode,
+        toNode: hop.toNode,
+        stepName: hop.stepName,
+        latencyMs: hop.latencyMs,
+        timestamp: Date.now(),
+      };
+      recordStep({ ...base, status: "running", payload: {} });
+      setTimeout(() => {
+        if (!loadTestActiveRef.current) return;
+        recordStep({ ...base, status: hop.outcome, payload: hop.payload, timestamp: Date.now() });
+      }, hop.latencyMs);
+    }
+    const delay = Math.max(20, 1000 / loadTestRateRef.current);
+    loadTestTimerRef.current = setTimeout(runLoadTestTick, delay);
+  }, [recordStep]);
+
+  const startLoadTest = useCallback(
+    (rate: number) => {
+      if (running || (simActive && simActive !== "load-test")) return;
+      loadTestRateRef.current = rate;
+      setLoadTestRateState(rate);
+      loadTestActiveRef.current = true;
+      setLoadTestActive(true);
+      setSimActive("load-test");
+      runLoadTestTick();
+    },
+    [running, simActive, runLoadTestTick],
+  );
+
+  const stopLoadTest = useCallback(() => {
+    loadTestActiveRef.current = false;
+    setLoadTestActive(false);
+    if (loadTestTimerRef.current) {
+      clearTimeout(loadTestTimerRef.current);
+      loadTestTimerRef.current = null;
+    }
+    setSimActive((prev) => (prev === "load-test" ? null : prev));
+  }, []);
+
+  const setLoadTestRate = useCallback((rate: number) => {
+    loadTestRateRef.current = rate;
+    setLoadTestRateState(rate);
+  }, []);
+
   const loadTopology = useCallback(
     (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], custom: boolean) => {
       simCancelRef.current += 1;
+      loadTestActiveRef.current = false;
+      setLoadTestActive(false);
+      if (loadTestTimerRef.current) {
+        clearTimeout(loadTestTimerRef.current);
+        loadTestTimerRef.current = null;
+      }
       nodeTimers.current.forEach((t) => clearTimeout(t));
       nodeTimers.current.clear();
       edgeTimers.current.forEach((t) => clearTimeout(t));
@@ -436,5 +506,12 @@ export function useTraceSocket() {
     ingestedFiles,
     selectedFilePath,
     selectFile,
+    loadTestActive,
+    loadTestRate,
+    startLoadTest,
+    stopLoadTest,
+    setLoadTestRate,
+    topologyNodes: topologyNodesRef.current,
+    topologyEdges: topologyEdgesRef.current,
   };
 }

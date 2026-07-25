@@ -57,7 +57,7 @@ export default function FlowCanvas({
     >
       <Background variant={BackgroundVariant.Dots} color="#CBD5E1" gap={20} size={1.4} />
       <Controls
-        className="!bottom-4 !left-4 !rounded-lg !border !border-border !shadow-md dark:!border-slate-700"
+        className="!bottom-4 !left-4 !rounded-lg !border !border-border !shadow-md dark:!border-slate-700 [&>button]:!h-9 [&>button]:!w-9 sm:[&>button]:!h-7 sm:[&>button]:!w-7"
         showInteractive={false}
       />
       <MiniMap
