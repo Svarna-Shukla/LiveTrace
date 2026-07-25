@@ -1,31 +1,8 @@
 import JSZip from "jszip";
+import { isIgnoredPath, isCodeFile, MAX_FILES, MAX_TOTAL_CHARS, type IngestedFile, type IngestResult } from "./ingestFilters";
 
-const CODE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".json"];
-const MAX_FILES = 200;
-const MAX_TOTAL_CHARS = 400_000;
-
-function isIgnoredPath(path: string): boolean {
-  return /(^|\/)(node_modules|\.git|dist|build|\.next)(\/|$)/.test(path);
-}
-
-function isCodeFile(path: string): boolean {
-  const base = path.split("/").pop() ?? path;
-  if (base.startsWith(".env")) return true;
-  return CODE_EXTENSIONS.some((ext) => base.toLowerCase().endsWith(ext));
-}
-
-export interface IngestedFile {
-  path: string;
-  content: string;
-}
-
-export interface ZipExtractResult {
-  files: IngestedFile[];
-  combined: string;
-  fileCount: number;
-  skipped: number;
-  truncated: boolean;
-}
+export type { IngestedFile };
+export type ZipExtractResult = IngestResult;
 
 /**
  * Recursively pulls text out of a .zip archive: code/config files only,

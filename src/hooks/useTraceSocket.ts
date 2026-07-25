@@ -343,13 +343,17 @@ export function useTraceSocket() {
 
   const loadCustomGraph = useCallback(
     (multi: MultiFileResult, combinedSourceCode: string) => {
-      if (running || simActive || !multi.combined) return;
-      loadTopology(multi.combined.nodes, multi.combined.edges, true);
+      if (running || simActive || multi.files.length === 0) return;
+      // A folder/zip made up entirely of code-only files has no combined
+      // graph to show — open an empty canvas so the Explorer + code viewer
+      // are still reachable, rather than refusing to load at all.
+      const topology = multi.combined ?? { nodes: [], edges: [], hops: [] };
+      loadTopology(topology.nodes, topology.edges, true);
       multiFileRef.current = multi;
       setIngestedFiles(multi.files);
       setSelectedFilePath(null);
       setLastIngestedSource(combinedSourceCode);
-      void runHops(multi.combined.hops, "custom");
+      if (topology.hops.length > 0) void runHops(topology.hops, "custom");
     },
     [running, simActive, loadTopology, runHops],
   );

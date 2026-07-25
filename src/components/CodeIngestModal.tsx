@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, PlayCircle, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileUp, FolderUp, Loader2, PlayCircle, X } from "lucide-react";
 import CodeEditor from "./CodeEditor";
 import { CODE_PRESETS } from "@/lib/codeParser";
 import { extractZipSource, type IngestedFile } from "@/lib/zipIngest";
+import { extractFolderSource } from "@/lib/folderIngest";
 import { buildMultiFileGraphs, type MultiFileResult } from "@/lib/multiFile";
 import clsx from "clsx";
 
@@ -14,7 +15,11 @@ interface CodeIngestModalProps {
   onRun: (multi: MultiFileResult, combinedSourceCode: string) => void;
 }
 
-const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.zip,.env";
+const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.go,.zip,.env";
+
+/** `webkitRelativePath` is only populated for folder selections/drops. */
+const hasRelativePath = (file: File): boolean =>
+  Boolean((file as File & { webkitRelativePath?: string }).webkitRelativePath);
 
 type NoticeTone = "warning" | "success";
 
@@ -26,6 +31,7 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
 
@@ -47,8 +53,8 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     });
 
   const handleFiles = async (files: FileList | File[]) => {
-    const file = Array.from(files)[0];
-    if (!file) return;
+    const list = Array.from(files);
+    if (list.length === 0) return;
 
     setActivePreset(null);
     setPendingFiles(null);
@@ -56,6 +62,30 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     setNotice(null);
 
     try {
+      const isFolderSelection = list.length > 1 || hasRelativePath(list[0]);
+
+      if (isFolderSelection) {
+        const result = await extractFolderSource(list);
+        if (result.fileCount === 0) {
+          setNotice({
+            tone: "warning",
+            message:
+              "No readable code files found in that folder (after skipping node_modules/.git/.next/dist/build and binaries).",
+          });
+          return;
+        }
+        setCode(result.combined);
+        setPendingFiles(result.files);
+        setNotice({
+          tone: "success",
+          message: `Loaded ${result.fileCount} file${result.fileCount === 1 ? "" : "s"} from the folder${
+            result.skipped > 0 ? ` (${result.skipped} skipped)` : ""
+          }${result.truncated ? " — folder was large, some files were truncated" : ""}. Each file will appear in the Explorer sidebar.`,
+        });
+        return;
+      }
+
+      const file = list[0];
       if (file.name.toLowerCase().endsWith(".zip")) {
         const result = await extractZipSource(file);
         if (result.fileCount === 0) {
@@ -109,7 +139,11 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     const files: IngestedFile[] = pendingFiles ?? [{ path: preset?.fileName ?? "snippet.js", content: code }];
     const multi = buildMultiFileGraphs(files);
 
-    if (!multi.combined) {
+    // A single pasted snippet with no detectable signature is a dead end —
+    // warn instead of opening an empty canvas. A multi-file folder/zip is
+    // still worth opening even if every file turns out to be code-only: the
+    // Explorer + read-only code viewer remain useful.
+    if (!multi.combined && files.length <= 1) {
       setNotice({
         tone: "warning",
         message:
@@ -205,21 +239,40 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
-            >
-              <FileUp size={13} />
-              Upload file
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+              >
+                <FileUp size={13} />
+                Upload file
+              </button>
+              <button
+                onClick={() => folderInputRef.current?.click()}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+              >
+                <FolderUp size={13} />
+                Upload folder
+              </button>
+            </div>
             <span className="text-[10.5px] text-slate-400 dark:text-slate-500">
-              .js · .ts · .py · .json · .env · .zip (drag &amp; drop supported)
+              .js · .ts · .py · .go · .json · .env · .zip (drag &amp; drop supported)
             </span>
             <input
               ref={fileInputRef}
               type="file"
               accept={ACCEPTED_EXTENSIONS}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
               onChange={handleFileChange}
               className="hidden"
             />

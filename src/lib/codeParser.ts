@@ -13,17 +13,47 @@ const EXPRESS_ROUTE_RE = /(?<!@\w*)\b(?:app|router)\.(get|post|put|patch|delete)
 const NEXT_HANDLER_RE = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/g;
 const FASTAPI_ROUTE_RE = /@\w+\.(get|post|put|patch|delete)\s*\(\s*["']([^"']+)["']/gi;
 const FETCH_RE = /\bfetch\s*\(\s*(['"`])([^'"`]+)\1(?:\s*,\s*\{[^}]*?\bmethod\s*:\s*(['"`])(\w+)\3)?/gi;
+const AXIOS_RE = /\baxios\.(get|post|put|patch|delete)\s*\(\s*(['"`])([^'"`]+)\2/gi;
 
 const ENV_PATTERNS: RegExp[] = [
   /\bprocess\.env\.([A-Z0-9_]+)/g,
   /\bprocess\.env\[\s*["']([A-Z0-9_]+)["']\s*\]/g,
   /\bos\.(?:environ(?:\.get)?|getenv)\s*\(\s*["']([A-Z0-9_]+)["']/g,
   /\bos\.environ\[\s*["']([A-Z0-9_]+)["']\s*\]/g,
+  /\bimport\.meta\.env\.([A-Z0-9_]+)/g,
+  /\bimport\.meta\.env\[\s*["']([A-Z0-9_]+)["']\s*\]/g,
 ];
 
 const DB_CALL_RE =
   /\b(?:db|prisma(?:\.\w+)?|knex|mongoose(?:\.\w+)?|pool|connection|conn|session|sequelize(?:\.\w+)?|db_session|orm)\.(query|execute|findUnique|findMany|findFirst|find|create|update|delete|save|insert|select|all|first)\s*\(/g;
 const RAW_SQL_RE = /\b(SELECT\s+.+?\s+FROM\s+\w+|INSERT\s+INTO\s+\w+|UPDATE\s+\w+\s+SET|DELETE\s+FROM\s+\w+)\b/gi;
+
+// Coarse presence checks for the sidebar's Diagram/Code badge — deliberately
+// broader than the route/env/db regexes above (e.g. bare `router.` or lone
+// `axios` usage), so a file is flagged flowchart-ready whenever it contains
+// any of the target signatures, even if the graph builder can't turn it into
+// a full route/hop.
+const RELEVANCE_PATTERNS: RegExp[] = [
+  /\bfetch\s*\(/,
+  /\baxios\b/i,
+  /\bapp\.(get|post|put|patch|delete)\s*\(/i,
+  /export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/,
+  /\brouter\./,
+  /\bprocess\.env\b/,
+  /\bos\.environ\b/,
+  /\bimport\.meta\.env\b/,
+  /\bprisma\./,
+  /\bdb\./,
+  /\bSELECT\b/,
+  /\bINSERT\b/,
+  /\bmongoose\./,
+  /\bsequelize\b/i,
+];
+
+/** Does this file contain at least one API/env/DB signature worth diagramming? */
+export function isFlowchartReady(source: string): boolean {
+  return RELEVANCE_PATTERNS.some((re) => re.test(source));
+}
 
 interface RawRouteMatch {
   method: string;
@@ -51,6 +81,9 @@ function findRoutes(source: string): RawRouteMatch[] {
   for (const m of source.matchAll(FETCH_RE)) {
     const method = m[4] ? m[4].toUpperCase() : "GET";
     matches.push({ method, path: m[2], index: m.index ?? 0, kind: "fetch" });
+  }
+  for (const m of source.matchAll(AXIOS_RE)) {
+    matches.push({ method: m[1].toUpperCase(), path: m[3], index: m.index ?? 0, kind: "fetch" });
   }
 
   return matches.sort((a, b) => a.index - b.index);

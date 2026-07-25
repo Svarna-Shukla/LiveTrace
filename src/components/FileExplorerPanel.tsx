@@ -74,12 +74,16 @@ function TreeItem({
 
   if (node.isFile) {
     const isSelected = selectedFilePath === node.path;
-    const hasGraph = Boolean(node.entry?.topology);
+    const isFlowchartReady = Boolean(node.entry?.isFlowchartReady);
     const { Icon, className } = fileIcon(node.name);
     return (
       <button
         onClick={() => onSelectFile(node.path)}
-        title={hasGraph ? node.path : `${node.path} (no routes/env/db detected)`}
+        title={
+          isFlowchartReady
+            ? node.path
+            : `${node.path} (no active API, .env, or DB traces detected)`
+        }
         style={{ paddingLeft: `${depth * 14 + 10}px` }}
         className={clsx(
           "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[12px] transition-colors",
@@ -88,8 +92,17 @@ function TreeItem({
             : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800",
         )}
       >
-        <Icon size={13} className={clsx("shrink-0", className, !hasGraph && "opacity-40")} />
-        <span className={clsx("truncate", !hasGraph && "opacity-50")}>{node.name}</span>
+        <Icon size={13} className={clsx("shrink-0", className, !isFlowchartReady && "opacity-40")} />
+        <span className={clsx("min-w-0 flex-1 truncate", !isFlowchartReady && "opacity-50")}>{node.name}</span>
+        {isFlowchartReady ? (
+          <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-semibold leading-none text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+            ⚡ Diagram
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-semibold leading-none text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            📄 Code
+          </span>
+        )}
       </button>
     );
   }
@@ -135,6 +148,11 @@ export default function FileExplorerPanel({
   busy,
 }: FileExplorerPanelProps) {
   const tree = useMemo(() => buildTree(files), [files]);
+  const selectedEntry = useMemo(
+    () => files.find((f) => f.file.path === selectedFilePath) ?? null,
+    [files, selectedFilePath],
+  );
+  const canSimulateSelected = selectedFilePath !== null && Boolean(selectedEntry?.isFlowchartReady);
 
   return (
     <div className="z-10 flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border bg-white/95 p-3.5 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
@@ -181,8 +199,14 @@ export default function FileExplorerPanel({
         </button>
         <button
           onClick={onSimulateRoute}
-          disabled={busy || selectedFilePath === null}
-          title={selectedFilePath === null ? "Select a file to simulate its route" : undefined}
+          disabled={busy || !canSimulateSelected}
+          title={
+            selectedFilePath === null
+              ? "Select a file to simulate its route"
+              : !canSimulateSelected
+                ? "This file has no API/env/DB traces to simulate"
+                : undefined
+          }
           className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <GitBranch size={13} />

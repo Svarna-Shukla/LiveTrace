@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import { buildDynamicTopology, parseCode, type DynamicTopology } from "./codeParser";
+import { buildDynamicTopology, isFlowchartReady, parseCode, type DynamicTopology } from "./codeParser";
 import type { IngestedFile } from "./zipIngest";
 import type { ServiceNodeData, TraceEdgeData } from "./topology";
 import type { SimHop } from "./simulate";
@@ -7,6 +7,8 @@ import type { SimHop } from "./simulate";
 export interface FileGraphEntry {
   file: IngestedFile;
   topology: DynamicTopology | null;
+  /** True when the file contains at least one API/env/DB signature — drives the Explorer's Diagram/Code badge and dual-view switch. */
+  isFlowchartReady: boolean;
 }
 
 export interface MultiFileResult {
@@ -91,7 +93,7 @@ export function buildMultiFileGraphs(files: IngestedFile[]): MultiFileResult {
   files.forEach((file, index) => {
     const parsed = parseCode(file.content);
     const topology = buildDynamicTopology(parsed);
-    entries.push({ file, topology });
+    entries.push({ file, topology, isFlowchartReady: isFlowchartReady(file.content) });
 
     if (topology) {
       const prefix = `f${index}-`;

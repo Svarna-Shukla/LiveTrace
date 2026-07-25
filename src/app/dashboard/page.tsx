@@ -5,6 +5,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import FlowCanvas from "@/components/FlowCanvas";
 import ControlPanel from "@/components/ControlPanel";
 import FileExplorerPanel from "@/components/FileExplorerPanel";
+import CodeViewerPanel from "@/components/CodeViewerPanel";
 import EventLog from "@/components/EventLog";
 import SimulateToolbar from "@/components/SimulateToolbar";
 import NodeInspectorDrawer from "@/components/NodeInspectorDrawer";
@@ -71,6 +72,12 @@ export default function DashboardPage() {
     [nodeActivity, selectedNodeId],
   );
 
+  const selectedFileEntry = useMemo(
+    () => (selectedFilePath ? ingestedFiles.find((f) => f.file.path === selectedFilePath) ?? null : null),
+    [ingestedFiles, selectedFilePath],
+  );
+  const showCodeViewer = selectedFileEntry !== null && !selectedFileEntry.isFlowchartReady;
+
   const busy = running || simActive !== null;
 
   const handleRunAll = useCallback(() => {
@@ -116,17 +123,23 @@ export default function DashboardPage() {
           />
         )}
         <div className="relative h-full flex-1">
-          <SimulateToolbar simActive={simActive} disabled={busy} onSimulate={simulateRequest} />
-          <ReactFlowProvider>
-            <FlowCanvas
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={handleNodeClick}
-              onPaneClick={handleCloseDrawer}
-            />
-          </ReactFlowProvider>
+          {showCodeViewer && selectedFileEntry ? (
+            <CodeViewerPanel entry={selectedFileEntry} />
+          ) : (
+            <>
+              <SimulateToolbar simActive={simActive} disabled={busy} onSimulate={simulateRequest} />
+              <ReactFlowProvider>
+                <FlowCanvas
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onNodeClick={handleNodeClick}
+                  onPaneClick={handleCloseDrawer}
+                />
+              </ReactFlowProvider>
+            </>
+          )}
         </div>
         <EventLog log={log} />
       </main>
