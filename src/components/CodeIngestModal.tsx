@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import type { Edge, Node } from "@xyflow/react";
-import { AlertTriangle, FileUp, PlayCircle, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileUp, Loader2, PlayCircle, X } from "lucide-react";
 import CodeEditor from "./CodeEditor";
 import { buildDynamicTopology, CODE_PRESETS, parseCode } from "@/lib/codeParser";
+import { extractZipSource } from "@/lib/zipIngest";
 import type { SimHop } from "@/lib/simulate";
 import type { ServiceNodeData, TraceEdgeData } from "@/lib/topology";
 import clsx from "clsx";
@@ -12,15 +13,19 @@ import clsx from "clsx";
 interface CodeIngestModalProps {
   open: boolean;
   onClose: () => void;
-  onRun: (nodes: Node<ServiceNodeData>[], edges: Edge<TraceEdgeData>[], hops: SimHop[]) => void;
+  onRun: (nodes: Node<ServiceNodeData>[], edges: Edge<TraceEdgeData>[], hops: SimHop[], sourceCode: string) => void;
 }
 
-const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.zip";
+const ACCEPTED_EXTENSIONS = ".js,.jsx,.ts,.tsx,.json,.py,.zip,.env";
+
+type NoticeTone = "warning" | "success";
 
 export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModalProps) {
   const [code, setCode] = useState("");
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: NoticeTone; message: string } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -33,50 +38,87 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
     setNotice(null);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const readTextFile = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+      reader.readAsText(file);
+    });
+
+  const handleFiles = async (files: FileList | File[]) => {
+    const file = Array.from(files)[0];
     if (!file) return;
 
-    if (file.name.toLowerCase().endsWith(".zip")) {
-      setNotice("ZIP archives aren't supported yet — please upload a single .js/.ts/.py/.json file, or paste code directly.");
-      e.target.value = "";
-      return;
-    }
+    setActivePreset(null);
+    setIsProcessing(true);
+    setNotice(null);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCode(String(reader.result ?? ""));
-      setActivePreset(null);
-      setNotice(null);
-    };
-    reader.readAsText(file);
+    try {
+      if (file.name.toLowerCase().endsWith(".zip")) {
+        const result = await extractZipSource(file);
+        if (result.fileCount === 0) {
+          setNotice({
+            tone: "warning",
+            message: "No readable code files found in that archive (after skipping node_modules/.git/binaries).",
+          });
+          return;
+        }
+        setCode(result.combined);
+        setNotice({
+          tone: "success",
+          message: `Extracted ${result.fileCount} file${result.fileCount === 1 ? "" : "s"} from ${file.name}${
+            result.skipped > 0 ? ` (${result.skipped} skipped)` : ""
+          }${result.truncated ? " — archive was large, some files were truncated" : ""}.`,
+        });
+      } else {
+        const text = await readTextFile(file);
+        setCode(text);
+      }
+    } catch (err) {
+      setNotice({
+        tone: "warning",
+        message: err instanceof Error ? `Couldn't read that file: ${err.message}` : "Couldn't read that file.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) void handleFiles(e.target.files);
     e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files.length > 0) void handleFiles(e.dataTransfer.files);
   };
 
   const handleRun = () => {
     if (!code.trim()) {
-      setNotice("Paste or upload some code first.");
+      setNotice({ tone: "warning", message: "Paste or upload some code first." });
       return;
     }
     const parsed = parseCode(code);
     const topology = buildDynamicTopology(parsed);
     if (!topology) {
-      setNotice(
-        "No API routes, env var access, or DB calls detected in this snippet. Try a preset, or paste code with a route handler.",
-      );
+      setNotice({
+        tone: "warning",
+        message:
+          "No API routes, env var access, or DB calls detected in this snippet. Try a preset, or paste code with a route handler.",
+      });
       return;
     }
-    onRun(topology.nodes, topology.edges, topology.hops);
+    onRun(topology.nodes, topology.edges, topology.hops, code);
     setNotice(null);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-sm">
-      <div
-        className="absolute inset-0"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0" onClick={onClose} />
       <div className="animate-fade-in-up relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
@@ -114,26 +156,57 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
             </div>
           </div>
 
-          <div className="mb-3 h-[280px]">
+          <div
+            className={clsx(
+              "relative mb-3 h-[280px] rounded-lg transition-all",
+              isDragOver && "ring-2 ring-emerald-400 ring-offset-2",
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={handleDrop}
+          >
             <CodeEditor
               value={code}
               onChange={(v) => {
                 setCode(v);
                 setActivePreset(null);
               }}
-              placeholder={"Paste a route handler, snippet, or file contents here…"}
+              placeholder={"Paste a route handler, snippet, or file contents here… (or drag & drop a .zip / file)"}
             />
+            {(isDragOver || isProcessing) && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-slate-900/70">
+                <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                  {isProcessing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Extracting files…
+                    </>
+                  ) : (
+                    <>
+                      <FileUp size={16} />
+                      Drop to upload
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FileUp size={13} />
               Upload file
             </button>
-            <span className="text-[10.5px] text-slate-400">.js · .ts · .py · .json · .zip</span>
+            <span className="text-[10.5px] text-slate-400">
+              .js · .ts · .py · .json · .env · .zip (drag &amp; drop supported)
+            </span>
             <input
               ref={fileInputRef}
               type="file"
@@ -144,9 +217,20 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
           </div>
 
           {notice && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] text-amber-700">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span>{notice}</span>
+            <div
+              className={clsx(
+                "mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11.5px]",
+                notice.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+              )}
+            >
+              {notice.tone === "success" ? (
+                <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+              ) : (
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              )}
+              <span>{notice.message}</span>
             </div>
           )}
         </div>
@@ -160,7 +244,8 @@ export default function CodeIngestModal({ open, onClose, onRun }: CodeIngestModa
           </button>
           <button
             onClick={handleRun}
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+            disabled={isProcessing}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <PlayCircle size={14} />
             Parse Code & Run Simulation

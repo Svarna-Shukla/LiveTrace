@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEdgesState, useNodesState, type Edge, type Node } from "@xyflow/react";
 import { getSocket } from "@/lib/socket-client";
 import { initialEdges, initialNodes, resolveEdge, type ServiceNodeData, type TraceEdgeData } from "@/lib/topology";
-import { buildTrafficSpikeHop, SUCCESS_LOGIN_HOPS, WRONG_PASSWORD_HOPS, type SimHop } from "@/lib/simulate";
+import { buildDynamicHops, buildDynamicSpikeHop, type SimHop } from "@/lib/simulate";
+import { buildScenarioHops } from "@/lib/scenarioHops";
 import {
   EVENTS,
   type ExecutionStep,
@@ -31,14 +32,16 @@ export function useTraceSocket() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [simActive, setSimActive] = useState<SimulationKind | null>(null);
   const [customGraphActive, setCustomGraphActive] = useState(false);
+  const [lastIngestedSource, setLastIngestedSource] = useState<string | null>(null);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const edgeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const simCancelRef = useRef(0);
+  const connectedRef = useRef(false);
   // Structural baseline (ids/source/target only matter here) of whichever
   // topology — built-in demo or a parsed custom graph — is currently active.
-  // Used for edge resolution and for restoring idle state on reset, so it
-  // stays independent of the live `nodes`/`edges` render state.
+  // Used for edge resolution, dynamic trace generation, and for restoring
+  // idle state on reset, so it stays independent of the live render state.
   const topologyNodesRef = useRef<Node<ServiceNodeData>[]>(initialNodes);
   const topologyEdgesRef = useRef<Edge<TraceEdgeData>[]>(initialEdges);
 
@@ -66,7 +69,9 @@ export function useTraceSocket() {
       const timeout = setTimeout(() => {
         setEdges((eds) =>
           eds.map((e) =>
-            e.id === edgeId ? { ...e, data: { ...e.data, status: "idle", label: undefined } as TraceEdgeData } : e,
+            e.id === edgeId
+              ? { ...e, data: { ...e.data, status: "idle", label: undefined, latencyMs: undefined } as TraceEdgeData }
+              : e,
           ),
         );
         timers.delete(edgeId);
@@ -110,6 +115,7 @@ export function useTraceSocket() {
                     status: step.status,
                     reversed: resolved.reversed,
                     label: step.status === "running" ? undefined : overrides?.edgeLabel,
+                    latencyMs: step.latencyMs,
                   } as TraceEdgeData,
                 }
               : e,
@@ -145,8 +151,14 @@ export function useTraceSocket() {
   useEffect(() => {
     const socket = getSocket();
 
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
+    const handleConnect = () => {
+      connectedRef.current = true;
+      setConnected(true);
+    };
+    const handleDisconnect = () => {
+      connectedRef.current = false;
+      setConnected(false);
+    };
     const handleTraceStep = (step: ExecutionStep) => recordStep(step);
 
     const handleFlowStart = (evt: FlowLifecycleEvent) => {
@@ -169,7 +181,10 @@ export function useTraceSocket() {
     socket.on(EVENTS.FLOW_END, handleFlowEnd);
     socket.on(EVENTS.FLOW_BUSY, handleFlowBusy);
 
-    if (socket.connected) setConnected(true);
+    if (socket.connected) {
+      connectedRef.current = true;
+      setConnected(true);
+    }
 
     return () => {
       socket.off("connect", handleConnect);
@@ -180,14 +195,6 @@ export function useTraceSocket() {
       socket.off(EVENTS.FLOW_BUSY, handleFlowBusy);
     };
   }, [recordStep]);
-
-  const triggerFlow = useCallback(
-    (scenario: FlowScenario) => {
-      if (running || simActive || customGraphActive) return;
-      getSocket().emit(EVENTS.TRIGGER_FLOW, { scenario });
-    },
-    [running, simActive, customGraphActive],
-  );
 
   const runSequentialHops = useCallback(
     async (hops: SimHop[], token: number) => {
@@ -215,9 +222,43 @@ export function useTraceSocket() {
     [recordStep],
   );
 
+  // Local (no-socket-required) fallback runner for the sidebar's server-style
+  // scenarios, so they keep working even without a live connection.
+  const runScenarioLocally = useCallback(
+    async (scenario: FlowScenario) => {
+      const hops = buildScenarioHops(scenario);
+      if (hops.length === 0) return;
+      const token = ++simCancelRef.current;
+      setRunning(true);
+      setCurrentScenario(scenario);
+      try {
+        await runSequentialHops(hops, token);
+      } finally {
+        if (simCancelRef.current === token) {
+          setRunning(false);
+        }
+      }
+    },
+    [runSequentialHops],
+  );
+
+  const triggerFlow = useCallback(
+    (scenario: FlowScenario) => {
+      if (running || simActive || customGraphActive) return;
+      if (connectedRef.current) {
+        getSocket().emit(EVENTS.TRIGGER_FLOW, { scenario });
+      } else {
+        void runScenarioLocally(scenario);
+      }
+    },
+    [running, simActive, customGraphActive, runScenarioLocally],
+  );
+
   const runTrafficSpike = useCallback(
     async (token: number) => {
-      const bursts = Array.from({ length: 10 }, (_, i) => buildTrafficSpikeHop(i));
+      const bursts = Array.from({ length: 10 }, (_, i) =>
+        buildDynamicSpikeHop(topologyNodesRef.current, topologyEdgesRef.current, i),
+      ).filter((hop): hop is SimHop => hop !== null);
       bursts.forEach((hop, i) => {
         setTimeout(() => {
           if (simCancelRef.current !== token) return;
@@ -257,7 +298,7 @@ export function useTraceSocket() {
 
   const simulateRequest = useCallback(
     (kind: SimulationKind) => {
-      if (running || simActive || customGraphActive) return;
+      if (running || simActive) return;
       if (kind === "traffic-spike") {
         const token = ++simCancelRef.current;
         setSimActive(kind);
@@ -265,11 +306,12 @@ export function useTraceSocket() {
           if (simCancelRef.current === token) setSimActive(null);
         });
       } else {
-        const hops = kind === "success-login" ? SUCCESS_LOGIN_HOPS : WRONG_PASSWORD_HOPS;
+        const dynamicKind = kind === "success-login" ? "success" : "error";
+        const hops = buildDynamicHops(topologyNodesRef.current, topologyEdgesRef.current, dynamicKind);
         void runHops(hops, kind);
       }
     },
-    [running, simActive, customGraphActive, runTrafficSpike, runHops],
+    [running, simActive, runTrafficSpike, runHops],
   );
 
   const loadTopology = useCallback(
@@ -294,9 +336,10 @@ export function useTraceSocket() {
   );
 
   const loadCustomGraph = useCallback(
-    (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], hops: SimHop[]) => {
+    (newNodes: Node<ServiceNodeData>[], newEdges: Edge<TraceEdgeData>[], hops: SimHop[], sourceCode: string) => {
       if (running || simActive) return;
       loadTopology(newNodes, newEdges, true);
+      setLastIngestedSource(sourceCode);
       void runHops(hops, "custom");
     },
     [running, simActive, loadTopology, runHops],
@@ -305,6 +348,7 @@ export function useTraceSocket() {
   const loadDemoTopology = useCallback(() => {
     if (running || simActive) return;
     loadTopology(initialNodes, initialEdges, false);
+    setLastIngestedSource(null);
   }, [running, simActive, loadTopology]);
 
   const resetCanvas = useCallback(() => {
@@ -341,5 +385,6 @@ export function useTraceSocket() {
     customGraphActive,
     loadCustomGraph,
     loadDemoTopology,
+    lastIngestedSource,
   };
 }

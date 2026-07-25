@@ -17,6 +17,7 @@ export interface TraceEdgeData extends Record<string, unknown> {
   status: NodeStatus;
   reversed: boolean;
   label?: string;
+  latencyMs?: number;
 }
 
 export const initialNodes: Node<ServiceNodeData>[] = [

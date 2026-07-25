@@ -2,8 +2,9 @@
 
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Database, Globe, KeyRound, ShieldCheck, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Database, Globe, KeyRound, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { ServiceIcon, ServiceNodeData } from "@/lib/topology";
+import { getSpeedTier, TIER_COLOR } from "@/lib/latencyTiers";
 import StatusBadge from "./StatusBadge";
 import clsx from "clsx";
 
@@ -31,12 +32,20 @@ const RING_STYLES: Record<ServiceNodeData["status"], string> = {
 function ServiceNode({ data, selected }: NodeProps & { data: ServiceNodeData }) {
   const Icon = ICONS[data.icon];
 
+  const tier =
+    typeof data.lastLatency === "number" && data.status !== "idle" ? getSpeedTier(data.lastLatency) : null;
+  const isBottleneck = tier === "slow" && (data.status === "running" || data.status === "success");
+
   return (
     <div
       className={clsx(
         "w-[240px] cursor-pointer rounded-xl border bg-white shadow-md transition-shadow duration-300",
         "border-slate-200",
-        selected ? "ring-2 ring-slate-400/70" : RING_STYLES[data.status],
+        selected
+          ? "ring-2 ring-slate-400/70"
+          : isBottleneck
+            ? "ring-2 ring-orange-400 shadow-orange-300/70"
+            : RING_STYLES[data.status],
       )}
     >
       <Handle
@@ -66,11 +75,23 @@ function ServiceNode({ data, selected }: NodeProps & { data: ServiceNodeData }) 
         </span>
         <div className="flex shrink-0 items-center gap-1.5">
           {typeof data.lastLatency === "number" && data.status !== "idle" && (
-            <span className="text-[10px] font-medium text-slate-400">{data.lastLatency}ms</span>
+            <span
+              className="text-[10px] font-semibold"
+              style={{ color: tier ? TIER_COLOR[tier] : undefined }}
+            >
+              {data.lastLatency}ms
+            </span>
           )}
           <StatusBadge status={data.status} overrideLabel={data.badgeLabel} />
         </div>
       </div>
+
+      {isBottleneck && (
+        <div className="flex items-center gap-1.5 rounded-b-xl border-t border-orange-200 bg-orange-50 px-3 py-1.5 text-[10px] font-bold text-orange-600">
+          <AlertTriangle size={12} className="shrink-0 animate-pulse" />
+          Slow Node (+{data.lastLatency}ms)
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from "@xyflow/react";
 import type { TraceEdgeData } from "@/lib/topology";
+import { getSpeedTier, TIER_ANIMATION_MS, TIER_COLOR } from "@/lib/latencyTiers";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "#3B82F6",
@@ -31,7 +32,13 @@ export default function TraceEdge({
   const status = data?.status ?? "idle";
   const reversed = data?.reversed ?? false;
   const isActive = status !== "idle";
-  const color = STATUS_COLORS[status] ?? "#94A3B8";
+
+  // Latency heatmap: color/animation speed reflect the hop's simulated
+  // duration, except errors always render red regardless of how fast they failed.
+  const tier = status !== "error" && typeof data?.latencyMs === "number" ? getSpeedTier(data.latencyMs) : null;
+  const isBottleneck = tier === "slow";
+  const color = status === "error" ? STATUS_COLORS.error : tier ? TIER_COLOR[tier] : STATUS_COLORS[status] ?? "#94A3B8";
+  const animationMs = tier ? TIER_ANIMATION_MS[tier] : 600;
 
   return (
     <>
@@ -44,6 +51,17 @@ export default function TraceEdge({
           strokeDasharray: "6 6",
         }}
       />
+      {isActive && isBottleneck && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={7}
+          strokeLinecap="round"
+          className="animate-pulse"
+          style={{ opacity: 0.35, filter: `blur(3px)` }}
+        />
+      )}
       {isActive && (
         <path
           d={edgePath}
@@ -55,14 +73,15 @@ export default function TraceEdge({
           className="animate-dash-flow"
           style={{
             animationDirection: reversed ? "reverse" : "normal",
-            filter: `drop-shadow(0 0 5px ${color})`,
+            animationDuration: `${animationMs}ms`,
+            filter: `drop-shadow(0 0 ${isBottleneck ? 8 : 5}px ${color})`,
           }}
         />
       )}
       {isActive && (
         <EdgeLabelRenderer>
           <div
-            className="pointer-events-none absolute rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm"
+            className="pointer-events-none absolute flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm"
             style={{
               transform: `translate(-50%, -50%) translate(${(sourceX + targetX) / 2}px, ${
                 (sourceY + targetY) / 2 - 14
@@ -70,7 +89,7 @@ export default function TraceEdge({
               backgroundColor: color,
             }}
           >
-            {data?.label ?? status}
+            {data?.label ?? (typeof data?.latencyMs === "number" ? `${data.latencyMs}ms` : status)}
           </div>
         </EdgeLabelRenderer>
       )}

@@ -16,3 +16,27 @@ body {
 .react-flow__attribution {
   display: none;
 }
+
+/* Print-to-PDF support for the AI Audit report — hides everything except
+   the dedicated printable report block, which the browser's print dialog
+   ("Save as PDF") can then render as its own document. */
+.livetrace-print-only {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .livetrace-print-only,
+  .livetrace-print-only * {
+    visibility: visible;
+  }
+  .livetrace-print-only {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

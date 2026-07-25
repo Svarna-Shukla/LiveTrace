@@ -21,14 +21,18 @@ export default function ControlPanel({
   onTrigger,
   onReset,
 }: ControlPanelProps) {
-  const scenariosDisabled = running || !connected || disabled;
+  const scenariosDisabled = running || disabled;
 
   return (
     <div className="z-10 flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border bg-white/95 p-3.5 shadow-lg backdrop-blur">
       <div className="mb-3">
         <h2 className="text-xs font-bold text-slate-700">Scenarios</h2>
         <p className="text-[10.5px] text-slate-400">
-          {disabled ? "Unavailable while a custom graph is loaded." : "Server-driven demo flows"}
+          {disabled
+            ? "Unavailable while a custom graph is loaded."
+            : connected
+              ? "Server-driven demo flows"
+              : "Local mode — running client-side"}
         </p>
       </div>
 

@@ -206,7 +206,7 @@ export function buildDynamicTopology(result: ParseResult): DynamicTopology | nul
         toNode: "env",
         stepName: "READ_ENV",
         payload: { keys: route.envVars },
-        latencyMs: 90,
+        latencyMs: 30,
         outcome: "success",
       });
     }
@@ -224,7 +224,7 @@ export function buildDynamicTopology(result: ParseResult): DynamicTopology | nul
         toNode: "database",
         stepName: "DB_QUERY",
         payload: { calls: route.dbCalls },
-        latencyMs: 210,
+        latencyMs: 320,
         outcome: "success",
       });
     }
