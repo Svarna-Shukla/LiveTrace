@@ -21,13 +21,13 @@ export function computeReplayState(
   chronologicalSteps: ExecutionStep[],
   uptoIndex: number,
 ): ReplayState {
-  const nodes = baseNodes.map((n) => ({
+  const nodes: Node<ServiceNodeData>[] = baseNodes.map((n) => ({
     ...n,
-    data: { ...n.data, status: "idle" as const, lastStep: undefined, lastLatency: undefined, badgeLabel: undefined },
+    data: { ...n.data, status: "idle", lastStep: undefined, lastLatency: undefined, badgeLabel: undefined },
   }));
-  const edges = baseEdges.map((e) => ({
+  const edges: Edge<TraceEdgeData>[] = baseEdges.map((e) => ({
     ...e,
-    data: { status: "idle" as const, reversed: false, label: undefined, latencyMs: undefined },
+    data: { status: "idle", reversed: false, label: undefined, latencyMs: undefined },
   }));
 
   const nodeIndexById = new Map(nodes.map((n, i) => [n.id, i]));
