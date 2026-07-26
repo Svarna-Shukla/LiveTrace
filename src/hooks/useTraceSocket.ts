@@ -6,6 +6,7 @@ import { getSocket } from "@/lib/socket-client";
 import { initialEdges, initialNodes, resolveEdge, type ServiceNodeData, type TraceEdgeData } from "@/lib/topology";
 import { buildDynamicHops, buildDynamicSpikeHop, buildLoadTestHop, type SimHop } from "@/lib/simulate";
 import { buildScenarioHops } from "@/lib/scenarioHops";
+import { toDynamicScenarios, type DynamicScenario, type RouteScenario } from "@/lib/codeParser";
 import type { FileGraphEntry, MultiFileResult } from "@/lib/multiFile";
 import {
   EVENTS,
@@ -38,6 +39,8 @@ export function useTraceSocket() {
   const [lastIngestedSource, setLastIngestedSource] = useState<string | null>(null);
   const [ingestedFiles, setIngestedFiles] = useState<FileGraphEntry[]>([]);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  const [dynamicScenarios, setDynamicScenarios] = useState<DynamicScenario[]>([]);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const edgeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -417,12 +420,13 @@ export function useTraceSocket() {
       // A folder/zip made up entirely of code-only files has no combined
       // graph to show — open an empty canvas so the Explorer + code viewer
       // are still reachable, rather than refusing to load at all.
-      const topology = multi.combined ?? { nodes: [], edges: [], hops: [] };
+      const topology = multi.combined ?? { nodes: [], edges: [], hops: [], routeScenarios: [] };
       loadTopology(topology.nodes, topology.edges, true);
       multiFileRef.current = multi;
       setIngestedFiles(multi.files);
       setSelectedFilePath(null);
       setLastIngestedSource(combinedSourceCode);
+      setDynamicScenarios(toDynamicScenarios(topology.routeScenarios));
       if (topology.hops.length > 0) void runHops(topology.hops, "custom");
     },
     [running, simActive, loadTopology, runHops],
@@ -435,10 +439,9 @@ export function useTraceSocket() {
       if (running || simActive) return;
       const multi = multiFileRef.current;
       if (!multi) return;
+      const emptyTopology = { nodes: [], edges: [], hops: [], routeScenarios: [] as RouteScenario[] };
       const topology =
-        path === null
-          ? multi.combined
-          : (multi.files.find((f) => f.file.path === path)?.topology ?? { nodes: [], edges: [], hops: [] });
+        path === null ? multi.combined : (multi.files.find((f) => f.file.path === path)?.topology ?? emptyTopology);
       if (!topology) return;
 
       simCancelRef.current += 1;
@@ -455,6 +458,7 @@ export function useTraceSocket() {
       setSimActive(null);
       setSelectedNodeId(null);
       setSelectedFilePath(path);
+      setDynamicScenarios(toDynamicScenarios(topology.routeScenarios));
     },
     [running, simActive, setEdges, setNodes],
   );
@@ -466,7 +470,19 @@ export function useTraceSocket() {
     setIngestedFiles([]);
     setSelectedFilePath(null);
     setLastIngestedSource(null);
+    setDynamicScenarios([]);
   }, [running, simActive, loadTopology]);
+
+  const runDynamicScenario = useCallback(
+    (scenario: DynamicScenario) => {
+      if (running || simActive || scenario.hops.length === 0) return;
+      setActiveScenarioId(scenario.id);
+      void runHops(scenario.hops, "dynamic").finally(() => {
+        setActiveScenarioId((prev) => (prev === scenario.id ? null : prev));
+      });
+    },
+    [running, simActive, runHops],
+  );
 
   const resetCanvas = useCallback(() => {
     simCancelRef.current += 1;
@@ -513,5 +529,8 @@ export function useTraceSocket() {
     setLoadTestRate,
     topologyNodes: topologyNodesRef.current,
     topologyEdges: topologyEdgesRef.current,
+    dynamicScenarios,
+    activeScenarioId,
+    runDynamicScenario,
   };
 }

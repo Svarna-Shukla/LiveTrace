@@ -10,9 +10,7 @@ import {
   FileJson2,
   Folder,
   FolderOpen,
-  GitBranch,
   LayoutDashboard,
-  PlayCircle,
 } from "lucide-react";
 import type { FileGraphEntry } from "@/lib/multiFile";
 
@@ -20,9 +18,6 @@ interface FileExplorerPanelProps {
   files: FileGraphEntry[];
   selectedFilePath: string | null;
   onSelectFile: (path: string | null) => void;
-  onRunAll: () => void;
-  onSimulateRoute: () => void;
-  busy: boolean;
 }
 
 interface TreeNode {
@@ -139,20 +134,8 @@ function TreeItem({
   );
 }
 
-export default function FileExplorerPanel({
-  files,
-  selectedFilePath,
-  onSelectFile,
-  onRunAll,
-  onSimulateRoute,
-  busy,
-}: FileExplorerPanelProps) {
+export default function FileExplorerPanel({ files, selectedFilePath, onSelectFile }: FileExplorerPanelProps) {
   const tree = useMemo(() => buildTree(files), [files]);
-  const selectedEntry = useMemo(
-    () => files.find((f) => f.file.path === selectedFilePath) ?? null,
-    [files, selectedFilePath],
-  );
-  const canSimulateSelected = selectedFilePath !== null && Boolean(selectedEntry?.isFlowchartReady);
 
   return (
     <div className="z-10 flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border bg-white/95 p-3.5 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
@@ -176,7 +159,7 @@ export default function FileExplorerPanel({
         Combined View
       </button>
 
-      <div className="mb-3 flex-1 space-y-0.5 overflow-y-auto border-t border-slate-100 pt-1.5 dark:border-slate-800">
+      <div className="flex-1 space-y-0.5 overflow-y-auto border-t border-slate-100 pt-1.5 dark:border-slate-800">
         {tree.map((node) => (
           <TreeItem
             key={`${node.path}-${node.isFile}`}
@@ -186,32 +169,6 @@ export default function FileExplorerPanel({
             onSelectFile={onSelectFile}
           />
         ))}
-      </div>
-
-      <div className="space-y-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
-        <button
-          onClick={onRunAll}
-          disabled={busy}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-violet-600 dark:hover:bg-violet-500"
-        >
-          <PlayCircle size={13} />
-          Run All Scenarios
-        </button>
-        <button
-          onClick={onSimulateRoute}
-          disabled={busy || !canSimulateSelected}
-          title={
-            selectedFilePath === null
-              ? "Select a file to simulate its route"
-              : !canSimulateSelected
-                ? "This file has no API/env/DB traces to simulate"
-                : undefined
-          }
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <GitBranch size={13} />
-          Simulate Route
-        </button>
       </div>
     </div>
   );

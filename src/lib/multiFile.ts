@@ -19,6 +19,10 @@ export interface MultiFileResult {
 const BAND_GAP = 60;
 const IMPORT_RE = /(?:import[^'"]*from\s*|require\(\s*)['"](\.[^'"]+)['"]/g;
 
+function remapHop(h: SimHop, remapId: (id: string) => string): SimHop {
+  return { ...h, fromNode: remapId(h.fromNode), toNode: remapId(h.toNode) };
+}
+
 function prefixTopology(topology: DynamicTopology, prefix: string, yOffset: number): DynamicTopology {
   const remapId = (id: string) => `${prefix}${id}`;
   return {
@@ -33,7 +37,13 @@ function prefixTopology(topology: DynamicTopology, prefix: string, yOffset: numb
       source: remapId(e.source),
       target: remapId(e.target),
     })),
-    hops: topology.hops.map((h) => ({ ...h, fromNode: remapId(h.fromNode), toNode: remapId(h.toNode) })),
+    hops: topology.hops.map((h) => remapHop(h, remapId)),
+    routeScenarios: topology.routeScenarios.map((rs) => ({
+      ...rs,
+      key: `${prefix}${rs.key}`,
+      successHops: rs.successHops.map((h) => remapHop(h, remapId)),
+      errors: rs.errors.map((e) => ({ ...e, hops: e.hops.map((h) => remapHop(h, remapId)) })),
+    })),
   };
 }
 
@@ -87,6 +97,7 @@ export function buildMultiFileGraphs(files: IngestedFile[]): MultiFileResult {
   const combinedNodes: Node<ServiceNodeData>[] = [];
   const combinedEdges: Edge<TraceEdgeData>[] = [];
   const combinedHops: SimHop[] = [];
+  const combinedRouteScenarios: DynamicTopology["routeScenarios"] = [];
   const fileRootIds = new Map<string, string>();
 
   let yCursor = 0;
@@ -101,6 +112,7 @@ export function buildMultiFileGraphs(files: IngestedFile[]): MultiFileResult {
       combinedNodes.push(...positioned.nodes);
       combinedEdges.push(...positioned.edges);
       combinedHops.push(...positioned.hops);
+      combinedRouteScenarios.push(...positioned.routeScenarios);
       fileRootIds.set(file.path, `${prefix}client`);
       yCursor += topologyHeight(topology) + BAND_GAP;
     }
@@ -109,7 +121,9 @@ export function buildMultiFileGraphs(files: IngestedFile[]): MultiFileResult {
   combinedEdges.push(...findImportEdges(files, fileRootIds));
 
   const combined: DynamicTopology | null =
-    combinedNodes.length > 0 ? { nodes: combinedNodes, edges: combinedEdges, hops: combinedHops } : null;
+    combinedNodes.length > 0
+      ? { nodes: combinedNodes, edges: combinedEdges, hops: combinedHops, routeScenarios: combinedRouteScenarios }
+      : null;
 
   return { files: entries, combined };
 }

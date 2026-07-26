@@ -9,6 +9,7 @@ import FileExplorerPanel from "@/components/FileExplorerPanel";
 import CodeViewerPanel from "@/components/CodeViewerPanel";
 import EventLog from "@/components/EventLog";
 import SimulateToolbar from "@/components/SimulateToolbar";
+import DynamicScenarioToolbar from "@/components/DynamicScenarioToolbar";
 import NodeInspectorDrawer from "@/components/NodeInspectorDrawer";
 import TopNavBar from "@/components/TopNavBar";
 import CodeIngestModal from "@/components/CodeIngestModal";
@@ -53,6 +54,9 @@ export default function DashboardPage() {
     setLoadTestRate,
     topologyNodes,
     topologyEdges,
+    dynamicScenarios,
+    activeScenarioId,
+    runDynamicScenario,
   } = useTraceSocket();
 
   const replay = useReplayTimeline(log);
@@ -104,15 +108,6 @@ export default function DashboardPage() {
 
   const busy = running || simActive !== null;
 
-  const handleRunAll = useCallback(() => {
-    selectFile(null);
-    simulateRequest("success-login");
-  }, [selectFile, simulateRequest]);
-
-  const handleSimulateRoute = useCallback(() => {
-    simulateRequest("success-login");
-  }, [simulateRequest]);
-
   if (sharedFlow === "checking") return null;
   if (sharedFlow) return <SharedFlowView flow={sharedFlow} />;
 
@@ -148,14 +143,7 @@ export default function DashboardPage() {
           )}
         >
           {customGraphActive ? (
-            <FileExplorerPanel
-              files={ingestedFiles}
-              selectedFilePath={selectedFilePath}
-              onSelectFile={selectFile}
-              onRunAll={handleRunAll}
-              onSimulateRoute={handleSimulateRoute}
-              busy={busy}
-            />
+            <FileExplorerPanel files={ingestedFiles} selectedFilePath={selectedFilePath} onSelectFile={selectFile} />
           ) : (
             <ControlPanel
               connected={connected}
@@ -172,16 +160,30 @@ export default function DashboardPage() {
             <CodeViewerPanel entry={selectedFileEntry} />
           ) : (
             <>
-              <SimulateToolbar
-                simActive={simActive}
-                disabled={busy}
-                onSimulate={simulateRequest}
-                loadTestActive={loadTestActive}
-                loadTestRate={loadTestRate}
-                onStartLoadTest={startLoadTest}
-                onStopLoadTest={stopLoadTest}
-                onChangeLoadTestRate={setLoadTestRate}
-              />
+              {customGraphActive ? (
+                <DynamicScenarioToolbar
+                  scenarios={dynamicScenarios}
+                  activeScenarioId={activeScenarioId}
+                  disabled={busy}
+                  onRunScenario={runDynamicScenario}
+                  loadTestActive={loadTestActive}
+                  loadTestRate={loadTestRate}
+                  onStartLoadTest={startLoadTest}
+                  onStopLoadTest={stopLoadTest}
+                  onChangeLoadTestRate={setLoadTestRate}
+                />
+              ) : (
+                <SimulateToolbar
+                  simActive={simActive}
+                  disabled={busy}
+                  onSimulate={simulateRequest}
+                  loadTestActive={loadTestActive}
+                  loadTestRate={loadTestRate}
+                  onStartLoadTest={startLoadTest}
+                  onStopLoadTest={stopLoadTest}
+                  onChangeLoadTestRate={setLoadTestRate}
+                />
+              )}
               <ReactFlowProvider>
                 <FlowCanvas
                   nodes={canvasState.nodes}
