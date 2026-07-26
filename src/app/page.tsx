@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
-import { ArrowRight, Braces, Flame, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Braces, Flame, Play, Sparkles, TrendingUp } from "lucide-react";
 import LandingNav from "@/components/LandingNav";
 import TiltCard from "@/components/TiltCard";
 import AuthModal from "@/components/AuthModal";
 
-const ParticleField = dynamic(() => import("@/components/three/ParticleField"), { ssr: false });
+const CodeSymbol3D = dynamic(() => import("@/components/three/CodeSymbol3D"), { ssr: false });
 
 const FEATURES = [
   {
@@ -38,8 +39,38 @@ const PLANS = [
   { name: "Team", price: "$49", tagline: "Shared workflows across your org", cta: "Contact Us" },
 ];
 
+const DEFAULT_REDIRECT = "/dashboard";
+
 export default function LandingPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
   const [authOpen, setAuthOpen] = useState(false);
+  const [redirectTarget, setRedirectTarget] = useState(DEFAULT_REDIRECT);
+
+  useEffect(() => {
+    // The /dashboard route guard (middleware.ts) bounces unauthenticated
+    // visitors here with ?callbackUrl=/dashboard — reopen the auth modal so
+    // they can sign in without losing where they were headed.
+    const params = new URLSearchParams(window.location.search);
+    const callbackUrl = params.get("callbackUrl");
+    if (callbackUrl) {
+      setRedirectTarget(callbackUrl);
+      setAuthOpen(true);
+    }
+  }, []);
+
+  const handleAuthenticated = () => {
+    router.push(redirectTarget);
+  };
+
+  const handleGetStarted = () => {
+    if (session) {
+      router.push(DEFAULT_REDIRECT);
+      return;
+    }
+    setRedirectTarget(DEFAULT_REDIRECT);
+    setAuthOpen(true);
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
@@ -47,64 +78,110 @@ export default function LandingPage() {
 
       <LandingNav onOpenAuth={() => setAuthOpen(true)} />
 
-      <section className="relative isolate mx-auto flex min-h-[86vh] w-full max-w-6xl flex-col items-center justify-center px-6 text-center">
-        <div className="absolute inset-0 -z-10">
-          <ParticleField />
+      <section className="relative isolate mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 px-6 py-14 lg:grid-cols-2 lg:gap-6 lg:py-20">
+        {/* Left column */}
+        <div className="relative flex flex-col items-start pb-16 text-left lg:pb-24">
+          <motion.span
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-semibold text-violet-300 backdrop-blur"
+          >
+            • Real-time Code Intelligence
+          </motion.span>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.05 }}
+            className="max-w-xl text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl"
+          >
+            <span className="block text-white">Visualize Code</span>
+            <span className="block bg-gradient-to-r from-[#F5B842] via-[#f7cf7a] to-[#F5B842] bg-clip-text italic text-transparent">
+              for Developers
+            </span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.12 }}
+            className="mt-5 max-w-md text-[15px] leading-relaxed text-slate-400"
+          >
+            Upload a codebase, watch it become an interactive architecture diagram, and trigger real error scenarios —
+            401s, DB timeouts, 500s — generated straight from your code.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mt-8 flex flex-wrap items-center gap-3"
+          >
+            <button
+              onClick={handleGetStarted}
+              className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F5B842] to-[#e0a530] px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_30px_rgba(245,184,66,0.35)] transition-transform hover:scale-[1.03]"
+            >
+              Get Started
+              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <a
+              href="#features"
+              title="See it in action"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white backdrop-blur transition-colors hover:bg-white/10"
+            >
+              <Play size={15} className="ml-0.5" fill="currentColor" />
+            </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.32 }}
+            className="absolute bottom-0 left-0 w-[min(320px,90vw)]"
+          >
+            <TiltCard className="border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 text-emerald-300">
+                  <Flame size={17} />
+                </div>
+                <div>
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">Case Study</p>
+                  <p className="text-[13px] font-bold text-white">
+                    50ms <span className="text-slate-500">→</span> 12ms p99 latency
+                  </p>
+                </div>
+              </div>
+              <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
+                Acme Eng cut checkout timeouts by 76% after tracing the bottleneck in LiveTrace.
+              </p>
+            </TiltCard>
+          </motion.div>
         </div>
 
-        <motion.span
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-semibold text-violet-300 backdrop-blur"
-        >
-          <Zap size={12} />
-          Real-time execution visualizer
-        </motion.span>
+        {/* Right column: 3D hero element */}
+        <div className="relative flex flex-col items-center">
+          <div className="relative h-[340px] w-full sm:h-[420px] lg:h-[480px]">
+            <CodeSymbol3D />
+          </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.05 }}
-          className="max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl"
-        >
-          Visualize, Audit &amp; Debug{" "}
-          <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
-            Code Workflows
-          </span>{" "}
-          in Real-Time
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.12 }}
-          className="mt-5 max-w-xl text-[15px] leading-relaxed text-slate-300"
-        >
-          Upload a codebase, watch it become an interactive architecture diagram, and trigger real error scenarios —
-          401s, DB timeouts, 500s — generated straight from your code.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-8 flex flex-wrap items-center justify-center gap-3"
-        >
-          <Link
-            href="/canvas"
-            className="group flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_0_30px_rgba(139,92,246,0.45)] transition-transform hover:scale-[1.03]"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="relative -mt-10 w-[min(280px,85vw)] sm:-mt-14"
           >
-            Create Code Workflow
-            <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
-          <a
-            href="#features"
-            className="rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
-          >
-            See Features
-          </a>
-        </motion.div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_20px_60px_rgba(139,92,246,0.2)] backdrop-blur-md">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 text-violet-300">
+                <TrendingUp size={17} />
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-white">+23% Team productivity growth</p>
+                <p className="text-[10.5px] text-slate-400">Since adopting live workflow tracing</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       <section id="features" className="relative mx-auto w-full max-w-6xl px-6 py-24">
@@ -156,7 +233,10 @@ export default function LandingPage() {
               </div>
               <p className="mt-2 text-[12.5px] text-slate-400">{plan.tagline}</p>
               <button
-                onClick={() => setAuthOpen(true)}
+                onClick={() => {
+                  setRedirectTarget(DEFAULT_REDIRECT);
+                  setAuthOpen(true);
+                }}
                 className={
                   plan.featured
                     ? "mt-5 w-full rounded-lg bg-violet-600 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-violet-500"
@@ -174,7 +254,12 @@ export default function LandingPage() {
         LiveTrace — Real-time execution visualizer
       </footer>
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onAuthenticated={handleAuthenticated}
+        googleCallbackUrl={redirectTarget}
+      />
     </div>
   );
 }

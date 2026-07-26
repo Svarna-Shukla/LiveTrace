@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Database, Gauge, Loader2, Lock, Square, ShieldCheck, Zap } from "lucide-react";
+import { Database, Download, Gauge, Loader2, Lock, Square, ShieldCheck, Zap } from "lucide-react";
 import type { DynamicScenario } from "@/lib/codeParser";
 
 interface DynamicScenarioToolbarProps {
@@ -14,6 +14,8 @@ interface DynamicScenarioToolbarProps {
   onStartLoadTest: (rate: number) => void;
   onStopLoadTest: () => void;
   onChangeLoadTestRate: (rate: number) => void;
+  hasLoadTestReport: boolean;
+  onDownloadLoadTestReport: () => void;
 }
 
 function scenarioStyle(scenario: DynamicScenario) {
@@ -53,6 +55,8 @@ export default function DynamicScenarioToolbar({
   onStartLoadTest,
   onStopLoadTest,
   onChangeLoadTestRate,
+  hasLoadTestReport,
+  onDownloadLoadTestReport,
 }: DynamicScenarioToolbarProps) {
   const loadTestControlsDisabled = disabled && !loadTestActive;
 
@@ -128,6 +132,16 @@ export default function DynamicScenarioToolbar({
             {loadTestActive ? <Square size={11} fill="currentColor" /> : <Zap size={12} />}
           </button>
         </div>
+
+        {!loadTestActive && hasLoadTestReport && (
+          <button
+            onClick={onDownloadLoadTestReport}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+          >
+            <Download size={14} />
+            Download Load Test Report
+          </button>
+        )}
       </div>
     </div>
   );

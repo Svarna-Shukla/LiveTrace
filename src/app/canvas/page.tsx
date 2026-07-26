@@ -57,6 +57,8 @@ export default function CanvasPage() {
     startLoadTest,
     stopLoadTest,
     setLoadTestRate,
+    loadTestReport,
+    downloadLoadTestReport,
     topologyNodes,
     topologyEdges,
     dynamicScenarios,
@@ -264,6 +266,8 @@ export default function CanvasPage() {
                   onStartLoadTest={startLoadTest}
                   onStopLoadTest={stopLoadTest}
                   onChangeLoadTestRate={setLoadTestRate}
+                  hasLoadTestReport={loadTestReport !== null}
+                  onDownloadLoadTestReport={downloadLoadTestReport}
                 />
               ) : (
                 <SimulateToolbar
@@ -275,6 +279,8 @@ export default function CanvasPage() {
                   onStartLoadTest={startLoadTest}
                   onStopLoadTest={stopLoadTest}
                   onChangeLoadTestRate={setLoadTestRate}
+                  hasLoadTestReport={loadTestReport !== null}
+                  onDownloadLoadTestReport={downloadLoadTestReport}
                 />
               )}
               <ReactFlowProvider>

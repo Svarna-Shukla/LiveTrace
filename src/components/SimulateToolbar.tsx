@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CircleX, Gauge, Loader2, Square, ShieldCheck, Zap } from "lucide-react";
+import { CircleX, Download, Gauge, Loader2, Square, ShieldCheck, Zap } from "lucide-react";
 import type { SimulationKind } from "@/lib/types";
 
 interface SimulateToolbarProps {
@@ -13,6 +13,8 @@ interface SimulateToolbarProps {
   onStartLoadTest: (rate: number) => void;
   onStopLoadTest: () => void;
   onChangeLoadTestRate: (rate: number) => void;
+  hasLoadTestReport: boolean;
+  onDownloadLoadTestReport: () => void;
 }
 
 const BUTTONS: Array<{
@@ -57,6 +59,8 @@ export default function SimulateToolbar({
   onStartLoadTest,
   onStopLoadTest,
   onChangeLoadTestRate,
+  hasLoadTestReport,
+  onDownloadLoadTestReport,
 }: SimulateToolbarProps) {
   // The other buttons stay locked out for any busy state; the Load Test
   // cluster only locks out for busy states it didn't itself cause, so its
@@ -126,6 +130,16 @@ export default function SimulateToolbar({
             {loadTestActive ? <Square size={11} fill="currentColor" /> : <Zap size={12} />}
           </button>
         </div>
+
+        {!loadTestActive && hasLoadTestReport && (
+          <button
+            onClick={onDownloadLoadTestReport}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+          >
+            <Download size={14} />
+            Download Load Test Report
+          </button>
+        )}
       </div>
     </div>
   );

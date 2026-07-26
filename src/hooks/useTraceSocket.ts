@@ -6,6 +6,12 @@ import { getSocket } from "@/lib/socket-client";
 import { initialEdges, initialNodes, resolveEdge, type ServiceNodeData, type TraceEdgeData } from "@/lib/topology";
 import { buildDynamicHops, buildDynamicSpikeHop, buildLoadTestHop, type SimHop } from "@/lib/simulate";
 import { buildScenarioHops } from "@/lib/scenarioHops";
+import {
+  downloadLoadTestReport as downloadLoadTestReportFile,
+  summarizeLoadTest,
+  type LoadTestSample,
+  type LoadTestSummary,
+} from "@/lib/loadTestReport";
 import { toDynamicScenarios, type DynamicScenario, type RouteScenario } from "@/lib/codeParser";
 import type { FileGraphEntry, MultiFileResult } from "@/lib/multiFile";
 import {
@@ -36,6 +42,7 @@ export function useTraceSocket() {
   const [customGraphActive, setCustomGraphActive] = useState(false);
   const [loadTestActive, setLoadTestActive] = useState(false);
   const [loadTestRate, setLoadTestRateState] = useState(10);
+  const [loadTestReport, setLoadTestReport] = useState<LoadTestSummary | null>(null);
   const [lastIngestedSource, setLastIngestedSource] = useState<string | null>(null);
   const [ingestedFiles, setIngestedFiles] = useState<FileGraphEntry[]>([]);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
@@ -61,6 +68,8 @@ export function useTraceSocket() {
   const loadTestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadTestRateRef = useRef(10);
   const loadTestSeqRef = useRef(0);
+  const loadTestSamplesRef = useRef<LoadTestSample[]>([]);
+  const loadTestStartRef = useRef(0);
 
   const scheduleNodeRevert = useCallback(
     (nodeId: string, delay: number) => {
@@ -340,6 +349,11 @@ export function useTraceSocket() {
       loadTestSeqRef.current++,
     );
     if (hop) {
+      loadTestSamplesRef.current.push({
+        endpoint: typeof hop.payload.target === "string" ? hop.payload.target : hop.toNode,
+        latencyMs: hop.latencyMs,
+        outcome: hop.outcome,
+      });
       const id = `load-${Date.now()}-${loadTestSeqRef.current}`;
       const base: Omit<ExecutionStep, "status" | "payload"> = {
         id,
@@ -365,6 +379,9 @@ export function useTraceSocket() {
       loadTestRateRef.current = rate;
       setLoadTestRateState(rate);
       loadTestActiveRef.current = true;
+      loadTestSamplesRef.current = [];
+      loadTestStartRef.current = Date.now();
+      setLoadTestReport(null);
       setLoadTestActive(true);
       setSimActive("load-test");
       runLoadTestTick();
@@ -380,7 +397,16 @@ export function useTraceSocket() {
       loadTestTimerRef.current = null;
     }
     setSimActive((prev) => (prev === "load-test" ? null : prev));
+    const samples = loadTestSamplesRef.current;
+    if (samples.length > 0) {
+      const durationMs = Date.now() - loadTestStartRef.current;
+      setLoadTestReport(summarizeLoadTest(samples, loadTestRateRef.current, durationMs));
+    }
   }, []);
+
+  const downloadLoadTestReport = useCallback(() => {
+    if (loadTestReport) downloadLoadTestReportFile(loadTestReport);
+  }, [loadTestReport]);
 
   const setLoadTestRate = useCallback((rate: number) => {
     loadTestRateRef.current = rate;
@@ -392,6 +418,7 @@ export function useTraceSocket() {
       simCancelRef.current += 1;
       loadTestActiveRef.current = false;
       setLoadTestActive(false);
+      setLoadTestReport(null);
       if (loadTestTimerRef.current) {
         clearTimeout(loadTestTimerRef.current);
         loadTestTimerRef.current = null;
@@ -545,6 +572,8 @@ export function useTraceSocket() {
     startLoadTest,
     stopLoadTest,
     setLoadTestRate,
+    loadTestReport,
+    downloadLoadTestReport,
     topologyNodes: topologyNodesRef.current,
     topologyEdges: topologyEdgesRef.current,
     dynamicScenarios,

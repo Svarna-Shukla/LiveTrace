@@ -9,11 +9,15 @@ interface AuthModalProps {
   open: boolean;
   onClose: () => void;
   onAuthenticated?: () => void;
+  /** Where NextAuth should send the browser back to after a Google OAuth
+   * redirect completes. Credentials sign-in doesn't need this — it never
+   * leaves the page, so `onAuthenticated` handles the redirect instead. */
+  googleCallbackUrl?: string;
 }
 
 type Mode = "signin" | "register";
 
-export default function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
+export default function AuthModal({ open, onClose, onAuthenticated, googleCallbackUrl }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -93,7 +97,7 @@ export default function AuthModal({ open, onClose, onAuthenticated }: AuthModalP
             <>
               <button
                 type="button"
-                onClick={() => signIn("google")}
+                onClick={() => signIn("google", googleCallbackUrl ? { callbackUrl: googleCallbackUrl } : undefined)}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2 text-[12.5px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Continue with Google
