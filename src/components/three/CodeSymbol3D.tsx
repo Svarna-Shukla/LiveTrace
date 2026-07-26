@@ -7,20 +7,36 @@ import * as THREE from "three";
 
 const GOLD = "#F5BA42";
 
-/** Verified curly-brace centerline (see scratchpad ribbon-check.svg): a
- * single continuous path of 6 cubic beziers tracing the classic brace
- * silhouette — two smooth arcs per half, meeting in a genuine pointed tooth
- * at the vertical center. Coordinates are in local shape units (4.4 tall,
- * 2.0 wide — a real glyph-like aspect ratio, not a thin sliver). */
+/** Verified curly-brace centerline (see scratchpad ribbon-check2.svg): a
+ * single continuous path tracing the classic brace silhouette — two smooth
+ * arcs per half, meeting at the vertical center through a small rounded
+ * corner rather than a true sharp point. A true C0 corner makes any
+ * constant-width offset self-intersect on the concave side (the ribbon
+ * folds over itself right at the point); rounding the corner first — via a
+ * quadratic bezier using the original sharp tip as its control point, from
+ * points pulled back along each arm — keeps curvature everywhere shallower
+ * than the ribbon's half-width, so the offset stays simple. Coordinates are
+ * in local shape units (4.4 tall, 2.0 wide). */
 function buildBraceCenterline(mirrorX: boolean): THREE.Path {
   const s = mirrorX ? -1 : 1;
   const path = new THREE.Path();
   const m = (x: number, y: number) => [s * x, y] as const;
 
+  const tip: [number, number] = [1.3, 0];
+  const armControl: [number, number] = [0.7, 0.15];
+  const cornerPull = 0.42;
+  let [dx, dy] = [tip[0] - armControl[0], tip[1] - armControl[1]];
+  const len = Math.hypot(dx, dy);
+  dx /= len;
+  dy /= len;
+  const pa: [number, number] = [tip[0] - dx * cornerPull, tip[1] - dy * cornerPull];
+  const pb: [number, number] = [pa[0], -pa[1]];
+
   path.moveTo(...m(0.15, 2.2));
   path.bezierCurveTo(...m(0.15, 1.9), ...m(-0.7, 1.75), ...m(-0.7, 1.3));
   path.bezierCurveTo(...m(-0.7, 0.85), ...m(0.15, 0.7), ...m(0.15, 0.55));
-  path.bezierCurveTo(...m(0.15, 0.25), ...m(0.7, 0.15), ...m(1.3, 0));
+  path.bezierCurveTo(...m(0.15, 0.25), ...m(...armControl), ...m(...pa));
+  path.quadraticCurveTo(...m(...tip), ...m(...pb));
   path.bezierCurveTo(...m(0.7, -0.15), ...m(0.15, -0.25), ...m(0.15, -0.55));
   path.bezierCurveTo(...m(0.15, -0.7), ...m(-0.7, -0.85), ...m(-0.7, -1.3));
   path.bezierCurveTo(...m(-0.7, -1.75), ...m(0.15, -1.9), ...m(0.15, -2.2));
@@ -30,22 +46,19 @@ function buildBraceCenterline(mirrorX: boolean): THREE.Path {
 
 /** Turns an open centerline into a closed ribbon (stroke → fill), the same
  * trick SVG-to-fill conversion uses, so ExtrudeGeometry gets a proper filled
- * 2D shape instead of a zero-thickness line. Width tapers to zero at the
- * path's two endpoints and at its sharp middle tooth — a constant-width
- * offset self-intersects at a true corner (the offset ribbon on the
- * concave side overlaps itself right at the point), so easing the width
- * down to nothing exactly where the curve comes to a point sidesteps the
- * overlap entirely and doubles as a nicer, genuinely pointed tooth/cap. */
+ * 2D shape instead of a zero-thickness line. Width is constant (matching a
+ * uniform-thickness brace glyph) except for a small safety dip right at the
+ * rounded tooth corner — the corner rounding alone gets curvature close to
+ * but not quite past the ribbon's half-width, so this trims the last sliver
+ * of self-intersection risk without being visible as an actual taper. */
 function ribbonFromCenterline(centerline: THREE.Path, width: number): THREE.Shape {
   const points = centerline.getPoints(240);
   const n = points.length;
   const tipIndex = (n - 1) / 2;
-  const tipTaperZone = 18;
-  const endTaperZone = 6;
+  const tipSafetyZone = 10;
   const widthAt = (i: number) => {
-    const tipFactor = Math.min(1, Math.abs(i - tipIndex) / tipTaperZone);
-    const endFactor = Math.min(1, Math.min(i, n - 1 - i) / endTaperZone);
-    return width * tipFactor * endFactor;
+    const tipFactor = 0.8 + 0.2 * Math.min(1, Math.abs(i - tipIndex) / tipSafetyZone);
+    return width * tipFactor;
   };
 
   const left: THREE.Vector2[] = [];
@@ -80,7 +93,7 @@ const EXTRUDE_SETTINGS: THREE.ExtrudeGeometryOptions = {
 
 function Brace({ mirrorX, position }: { mirrorX: boolean; position: [number, number, number] }) {
   const geometry = useMemo(() => {
-    const shape = ribbonFromCenterline(buildBraceCenterline(mirrorX), 0.3);
+    const shape = ribbonFromCenterline(buildBraceCenterline(mirrorX), 0.28);
     return new THREE.ExtrudeGeometry(shape, EXTRUDE_SETTINGS);
   }, [mirrorX]);
 
