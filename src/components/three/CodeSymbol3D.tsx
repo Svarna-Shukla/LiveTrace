@@ -2,8 +2,9 @@
 
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Sparkles } from "@react-three/drei";
 import * as THREE from "three";
+
+const GOLD = "#F5B842";
 
 /**
  * Procedural curly-brace silhouette (no external font asset needed). Points
@@ -13,87 +14,68 @@ import * as THREE from "three";
  */
 function buildBraceCurve(mirrorX: boolean): THREE.CatmullRomCurve3 {
   const raw: Array<[number, number]> = [
-    [0.32, 2.05],
-    [-0.55, 1.9],
-    [-0.55, 1.3],
-    [-0.16, 1.05],
-    [-0.55, 0.8],
-    [-0.55, 0.16],
-    [0.62, 0],
-    [-0.55, -0.16],
-    [-0.55, -0.8],
-    [-0.16, -1.05],
-    [-0.55, -1.3],
-    [-0.55, -1.9],
-    [0.32, -2.05],
+    [0.3, 2.0],
+    [-0.5, 1.75],
+    [-0.5, 1.05],
+    [-0.05, 0.55],
+    [0.55, 0],
+    [-0.05, -0.55],
+    [-0.5, -1.05],
+    [-0.5, -1.75],
+    [0.3, -2.0],
   ];
   const sign = mirrorX ? -1 : 1;
   const points = raw.map(([x, y]) => new THREE.Vector3(sign * x, y, 0));
-  return new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.35);
+  return new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.45);
 }
 
-function Brace({
-  mirrorX,
-  color,
-  emissive,
-  position,
-}: {
-  mirrorX: boolean;
-  color: string;
-  emissive: string;
+interface BraceGeometrySet {
   position: [number, number, number];
-}) {
-  const geometry = useMemo(() => {
-    const curve = buildBraceCurve(mirrorX);
-    return new THREE.TubeGeometry(curve, 220, 0.16, 24, false);
-  }, [mirrorX]);
-
-  return (
-    <mesh geometry={geometry} position={position} castShadow receiveShadow>
-      <meshPhysicalMaterial
-        color={color}
-        emissive={emissive}
-        emissiveIntensity={0.35}
-        metalness={1}
-        roughness={0.18}
-        clearcoat={1}
-        clearcoatRoughness={0.08}
-        iridescence={1}
-        iridescenceIOR={1.3}
-        iridescenceThicknessRange={[120, 480]}
-        envMapIntensity={1.4}
-      />
-    </mesh>
-  );
+  core: THREE.TubeGeometry;
+  glowMid: THREE.TubeGeometry;
+  glowOuter: THREE.TubeGeometry;
 }
 
+/** Warm amber neon-tube look: a bright emissive core plus two oversized,
+ * additively-blended "glow shell" copies of the same tube — a cheap
+ * stand-in for real bloom post-processing that reads convincingly as a
+ * glowing sign against the pure black background. */
 function RotatingRig() {
   const groupRef = useRef<THREE.Group>(null);
-  const lightsRef = useRef<THREE.Group>(null);
 
-  useFrame((state, delta) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.35;
-    }
-    if (lightsRef.current) {
-      const t = state.clock.elapsedTime;
-      lightsRef.current.rotation.y = t * 0.6;
-    }
+  useFrame((_, delta) => {
+    if (groupRef.current) groupRef.current.rotation.y += delta * 0.3;
   });
 
+  const braces = useMemo<BraceGeometrySet[]>(() => {
+    return [false, true].map((mirrorX) => {
+      const curve = buildBraceCurve(mirrorX);
+      return {
+        position: [mirrorX ? 0.85 : -0.85, 0, 0] as [number, number, number],
+        core: new THREE.TubeGeometry(curve, 220, 0.15, 24, false),
+        glowMid: new THREE.TubeGeometry(curve, 220, 0.24, 24, false),
+        glowOuter: new THREE.TubeGeometry(curve, 220, 0.34, 24, false),
+      };
+    });
+  }, []);
+
   return (
-    <>
-      <group ref={lightsRef}>
-        <pointLight position={[3.5, 2, 3]} intensity={18} color="#F5B842" distance={12} />
-        <pointLight position={[-3.5, -1.5, 2.5]} intensity={16} color="#8b5cf6" distance={12} />
-        <pointLight position={[0, -2.5, -3]} intensity={10} color="#22d3ee" distance={12} />
-      </group>
-      <group ref={groupRef}>
-        <Brace mirrorX={false} color="#f5c86a" emissive="#F5B842" position={[-0.85, 0, 0]} />
-        <Brace mirrorX={true} color="#c4b5fd" emissive="#8b5cf6" position={[0.85, 0, 0]} />
-      </group>
-      <Sparkles count={60} scale={7} size={2.5} speed={0.3} color="#f5c86a" opacity={0.6} />
-    </>
+    <group ref={groupRef}>
+      <pointLight position={[0, 0, 3]} intensity={6} color={GOLD} distance={10} />
+      {braces.map((brace, i) => (
+        <group key={i} position={brace.position}>
+          <mesh geometry={brace.glowOuter}>
+            <meshBasicMaterial color={GOLD} transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+          <mesh geometry={brace.glowMid}>
+            <meshBasicMaterial color={GOLD} transparent opacity={0.28} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+          <mesh geometry={brace.core}>
+            <meshStandardMaterial color={GOLD} emissive={GOLD} emissiveIntensity={2.6} toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
+    </group>
   );
 }
 
@@ -105,8 +87,7 @@ export default function CodeSymbol3D() {
       gl={{ antialias: true, alpha: true }}
       className="!absolute !inset-0"
     >
-      <ambientLight intensity={0.45} color="#a78bfa" />
-      <directionalLight position={[4, 5, 6]} intensity={0.8} color="#ffffff" />
+      <ambientLight intensity={0.15} />
       <RotatingRig />
     </Canvas>
   );

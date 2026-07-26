@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
-import { ArrowRight, Braces, Flame, Play, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, Braces, Flame, Play, Sparkles, Star } from "lucide-react";
 import LandingNav from "@/components/LandingNav";
 import TiltCard from "@/components/TiltCard";
 import AuthModal from "@/components/AuthModal";
+import { playfair } from "./fonts";
 
 const CodeSymbol3D = dynamic(() => import("@/components/three/CodeSymbol3D"), { ssr: false });
 
@@ -73,32 +74,34 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(139,92,246,0.25),transparent_45%),radial-gradient(circle_at_85%_15%,rgba(217,70,239,0.15),transparent_40%)]" />
+    <div className="min-h-screen overflow-x-hidden bg-black text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(139,92,246,0.12),transparent_45%),radial-gradient(circle_at_88%_20%,rgba(245,184,66,0.14),transparent_45%)]" />
 
       <LandingNav onOpenAuth={() => setAuthOpen(true)} />
 
       <section className="relative isolate mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 px-6 py-14 lg:grid-cols-2 lg:gap-6 lg:py-20">
         {/* Left column */}
-        <div className="relative flex flex-col items-start pb-16 text-left lg:pb-24">
+        <div className="relative flex flex-col items-start pb-40 text-left sm:pb-32 lg:pb-24">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-semibold text-violet-300 backdrop-blur"
+            className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#F5B842]/25 bg-[#1a1608]/70 px-3.5 py-1.5 text-[11.5px] font-semibold text-[#f2d9a3] backdrop-blur"
           >
-            • Real-time Code Intelligence
+            <span className="text-[#F5B842]">•</span> Real-time Code Intelligence
           </motion.span>
 
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="max-w-xl text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl"
+            className={`${playfair.className} max-w-xl text-[42px] leading-[1.1] tracking-tight sm:text-5xl md:text-[64px]`}
           >
-            <span className="block text-white">Visualize Code</span>
-            <span className="block bg-gradient-to-r from-[#F5B842] via-[#f7cf7a] to-[#F5B842] bg-clip-text italic text-transparent">
-              for Developers
+            <span className="block font-medium text-white">Visualize Code</span>
+            <span className="flex items-baseline gap-3">
+              <span className="font-bold text-[#F5B842]">for</span>
+              <em className="italic font-medium text-white">Developers</em>
+              <span className="ml-1 hidden h-9 w-px bg-white/20 sm:inline-block" />
             </span>
           </motion.h1>
 
@@ -120,15 +123,17 @@ export default function LandingPage() {
           >
             <button
               onClick={handleGetStarted}
-              className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F5B842] to-[#e0a530] px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_30px_rgba(245,184,66,0.35)] transition-transform hover:scale-[1.03]"
+              className="group flex items-center gap-2.5 rounded-full bg-[#F5B842] py-1.5 pl-6 pr-1.5 text-sm font-semibold text-black shadow-[0_0_30px_rgba(245,184,66,0.35)] transition-transform hover:scale-[1.03]"
             >
               Get Started
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/15">
+                <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+              </span>
             </button>
             <a
               href="#features"
               title="See it in action"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white backdrop-blur transition-colors hover:bg-white/10"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#F5B842]/25 bg-[#1a1608]/70 text-[#F5B842] backdrop-blur transition-colors hover:bg-[#221b0c]"
             >
               <Play size={15} className="ml-0.5" fill="currentColor" />
             </a>
@@ -138,29 +143,29 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.32 }}
-            className="absolute bottom-0 left-0 w-[min(320px,90vw)]"
+            className="absolute bottom-0 left-0 w-[min(340px,90vw)]"
           >
-            <TiltCard className="border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            <TiltCard className="border border-white/10 bg-[#0d0d0d]/90 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 text-emerald-300">
-                  <Flame size={17} />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#F5B842]">
+                  <Star size={16} />
                 </div>
                 <div>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">Case Study</p>
-                  <p className="text-[13px] font-bold text-white">
-                    50ms <span className="text-slate-500">→</span> 12ms p99 latency
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
+                    Latest case study
+                  </p>
+                  <p className="text-[13px] font-bold leading-snug text-white">
+                    Checkout API — Real-Time Trace Replay
                   </p>
                 </div>
               </div>
-              <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
-                Acme Eng cut checkout timeouts by 76% after tracing the bottleneck in LiveTrace.
-              </p>
             </TiltCard>
           </motion.div>
         </div>
 
         {/* Right column: 3D hero element */}
         <div className="relative flex flex-col items-center">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_45%,rgba(245,184,66,0.22),transparent_60%)]" />
           <div className="relative h-[340px] w-full sm:h-[420px] lg:h-[480px]">
             <CodeSymbol3D />
           </div>
@@ -169,16 +174,16 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="relative -mt-10 w-[min(280px,85vw)] sm:-mt-14"
+            className="relative -mt-10 flex w-full items-center gap-3 sm:-mt-14"
           >
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_20px_60px_rgba(139,92,246,0.2)] backdrop-blur-md">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 text-violet-300">
-                <TrendingUp size={17} />
-              </div>
-              <div>
-                <p className="text-[15px] font-bold text-white">+23% Team productivity growth</p>
-                <p className="text-[10.5px] text-slate-400">Since adopting live workflow tracing</p>
-              </div>
+            <div className="flex flex-1 flex-col items-center rounded-2xl border border-white/10 bg-[#0d0d0d]/90 px-4 py-4 text-center shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-md">
+              <p className={`${playfair.className} text-2xl font-bold text-[#F5B842]`}>+23%</p>
+              <p className="mt-1 text-[11.5px] text-slate-400">Team productivity growth</p>
+            </div>
+            <div className="hidden items-end gap-1.5 sm:flex">
+              <span className="h-9 w-2 rounded-full bg-white/10" />
+              <span className="h-12 w-2 rounded-full bg-white/10" />
+              <span className="h-7 w-2 rounded-full bg-white/10" />
             </div>
           </motion.div>
         </div>

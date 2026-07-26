@@ -6,4 +6,3 @@
   - Avoid plain, flat gray cards. Use dark radial gradients, subtle glassmorphism (`backdrop-blur-md`), and glowing border highlights.
   - Add interactive micro-animations to buttons, cards, and nodes using `framer-motion`.
   - Include interactive 3D particle backgrounds or floating geometry on main landing pages.
-
