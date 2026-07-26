@@ -1,9 +1,8 @@
-import { Playfair_Display } from "next/font/google";
+import { Baloo_2 } from "next/font/google";
 
-export const playfair = Playfair_Display({
+export const baloo = Baloo_2({
   subsets: ["latin"],
-  style: ["normal", "italic"],
-  weight: ["500", "600", "700"],
-  variable: "--font-playfair",
+  weight: ["600", "700", "800"],
+  variable: "--font-baloo",
   display: "swap",
 });

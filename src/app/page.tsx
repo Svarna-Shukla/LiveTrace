@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
-import { ArrowRight, Braces, Flame, Play, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Braces, Flame, Folder, Play, Sparkles } from "lucide-react";
 import LandingNav from "@/components/LandingNav";
 import TiltCard from "@/components/TiltCard";
 import AuthModal from "@/components/AuthModal";
-import { playfair } from "./fonts";
+import { baloo } from "./fonts";
 
 const CodeSymbol3D = dynamic(() => import("@/components/three/CodeSymbol3D"), { ssr: false });
 
@@ -75,7 +75,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(139,92,246,0.12),transparent_45%),radial-gradient(circle_at_88%_20%,rgba(245,184,66,0.14),transparent_45%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_82%_35%,rgba(245,184,66,0.16),transparent_50%)]" />
 
       <LandingNav onOpenAuth={() => setAuthOpen(true)} />
 
@@ -86,22 +86,22 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#F5B842]/25 bg-[#1a1608]/70 px-3.5 py-1.5 text-[11.5px] font-semibold text-[#f2d9a3] backdrop-blur"
+            className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-[#F5B842]/30 bg-black px-3.5 py-1.5 text-[13px] font-medium text-[#F5B842]"
           >
-            <span className="text-[#F5B842]">•</span> Real-time Code Intelligence
+            <span>•</span> Real-time Code Intelligence
           </motion.span>
 
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className={`${playfair.className} max-w-xl text-[42px] leading-[1.1] tracking-tight sm:text-5xl md:text-[64px]`}
+            className={`${baloo.className} max-w-xl text-[42px] leading-[1.1] tracking-tight sm:text-5xl md:text-[64px]`}
           >
-            <span className="block font-medium text-white">Visualize Code</span>
+            <span className="block font-extrabold text-white">Visualize Code</span>
             <span className="flex items-baseline gap-3">
-              <span className="font-bold text-[#F5B842]">for</span>
-              <em className="italic font-medium text-white">Developers</em>
-              <span className="ml-1 hidden h-9 w-px bg-white/20 sm:inline-block" />
+              <span className="font-extrabold text-[#F5B842]">for</span>
+              <span className="font-extrabold text-[#F5B842]">Developers</span>
+              <span className="ml-1 hidden h-9 w-px bg-[#F5B842]/40 sm:inline-block" />
             </span>
           </motion.h1>
 
@@ -123,19 +123,19 @@ export default function LandingPage() {
           >
             <button
               onClick={handleGetStarted}
-              className="group flex items-center gap-2.5 rounded-full bg-[#F5B842] py-1.5 pl-6 pr-1.5 text-sm font-semibold text-black shadow-[0_0_30px_rgba(245,184,66,0.35)] transition-transform hover:scale-[1.03]"
+              className="group flex items-center gap-3 rounded-full bg-[#F5B842] py-2 pl-7 pr-2 text-base font-semibold text-black transition-transform hover:scale-[1.03]"
             >
               Get Started
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/15">
-                <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/10">
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </button>
             <a
               href="#features"
               title="See it in action"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#F5B842]/25 bg-[#1a1608]/70 text-[#F5B842] backdrop-blur transition-colors hover:bg-[#221b0c]"
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[#211a0d] text-[#F5B842] transition-colors hover:bg-[#2a2110]"
             >
-              <Play size={15} className="ml-0.5" fill="currentColor" />
+              <Play size={16} className="ml-0.5" fill="currentColor" />
             </a>
           </motion.div>
 
@@ -145,17 +145,17 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.32 }}
             className="absolute bottom-0 left-0 w-[min(340px,90vw)]"
           >
-            <TiltCard className="border border-white/10 bg-[#0d0d0d]/90 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#F5B842]">
-                  <Star size={16} />
+            <TiltCard className="bg-[#161616] p-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#232323] text-slate-300">
+                  <Folder size={20} />
                 </div>
                 <div>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
-                    Latest case study
-                  </p>
-                  <p className="text-[13px] font-bold leading-snug text-white">
-                    Checkout API — Real-Time Trace Replay
+                  <p className="text-[13px] text-slate-400">Latest case study</p>
+                  <p className="text-[14.5px] font-bold leading-snug text-white">
+                    Checkout API
+                    <br />
+                    Real-Time Trace Replay
                   </p>
                 </div>
               </div>
@@ -176,14 +176,14 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="relative -mt-10 flex w-full items-center gap-3 sm:-mt-14"
           >
-            <div className="flex flex-1 flex-col items-center rounded-2xl border border-white/10 bg-[#0d0d0d]/90 px-4 py-4 text-center shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-md">
-              <p className={`${playfair.className} text-2xl font-bold text-[#F5B842]`}>+23%</p>
-              <p className="mt-1 text-[11.5px] text-slate-400">Team productivity growth</p>
+            <div className="flex flex-1 flex-col items-center rounded-2xl bg-[#161616] px-4 py-5 text-center">
+              <p className={`${baloo.className} text-4xl font-extrabold text-[#F5B842]`}>+23%</p>
+              <p className="mt-1.5 text-[13px] text-slate-400">Team productivity growth</p>
             </div>
-            <div className="hidden items-end gap-1.5 sm:flex">
-              <span className="h-9 w-2 rounded-full bg-white/10" />
-              <span className="h-12 w-2 rounded-full bg-white/10" />
-              <span className="h-7 w-2 rounded-full bg-white/10" />
+            <div className="hidden items-end gap-2 sm:flex">
+              <span className="h-14 w-2.5 rounded-full bg-[#161616]" />
+              <span className="h-20 w-2.5 rounded-full bg-[#161616]" />
+              <span className="h-11 w-2.5 rounded-full bg-[#161616]" />
             </div>
           </motion.div>
         </div>

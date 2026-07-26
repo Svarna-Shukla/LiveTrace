@@ -38,7 +38,8 @@ const EXTRUDE_SETTINGS: THREE.ExtrudeGeometryOptions = {
 };
 
 const SCENE_SCALE = 0.013;
-const BASE_ROTATION: [number, number, number] = [0.2, -0.4, 0.05];
+const BASE_ROTATION: [number, number, number] = [0.06, -0.04, 0];
+const GOLD = "#F0A93E";
 
 function buildBraceGeometry(): THREE.ExtrudeGeometry {
   const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg"><path d="${BRACE_SVG_PATH}"/></svg>`;
@@ -49,27 +50,53 @@ function buildBraceGeometry(): THREE.ExtrudeGeometry {
   return geometry;
 }
 
+/** The main glossy-glass brace plus an oversized, additively-blended
+ * "halo" copy of the same geometry sitting just behind it — a cheap stand-in
+ * for real bloom post-processing, since there's no <EffectComposer> here,
+ * that reads as a soft glow bleeding past the solid edges. */
+function Brace({ position, mirror }: { position: [number, number, number]; mirror?: boolean }) {
+  const geometry = useMemo(() => buildBraceGeometry(), []);
+  const scale: [number, number, number] = mirror ? [-1, 1, 1] : [1, 1, 1];
+
+  return (
+    <group position={position} scale={scale}>
+      <mesh geometry={geometry} scale={1.06}>
+        <meshBasicMaterial color={GOLD} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh geometry={geometry}>
+        <meshPhysicalMaterial
+          color={GOLD}
+          emissive={GOLD}
+          emissiveIntensity={0.45}
+          roughness={0.22}
+          metalness={0.05}
+          transmission={0.5}
+          thickness={1.5}
+          ior={1.4}
+          clearcoat={1}
+          clearcoatRoughness={0.12}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function Braces() {
   const groupRef = useRef<THREE.Group>(null);
-  const geometry = useMemo(() => buildBraceGeometry(), []);
 
-  // Very slow Y-axis sway around the fixed 3/4 tilt — not a spin, just a
-  // gentle back-and-forth — layered under Float's own floaty wobble.
+  // Very slow Y-axis sway around the fixed near-frontal tilt — not a spin,
+  // just a gentle back-and-forth — layered under Float's own floaty wobble.
   useFrame((state) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y = BASE_ROTATION[1] + Math.sin(state.clock.elapsedTime * 0.15) * 0.12;
+      groupRef.current.rotation.y = BASE_ROTATION[1] + Math.sin(state.clock.elapsedTime * 0.15) * 0.08;
     }
   });
 
   return (
     <Float speed={1.5} rotationIntensity={0.15} floatIntensity={0.3}>
       <group ref={groupRef} rotation={BASE_ROTATION} scale={SCENE_SCALE}>
-        <mesh geometry={geometry} position={[-115, 0, 0]}>
-          <meshPhysicalMaterial color="#E5B760" roughness={0.35} metalness={0.4} transmission={0.1} thickness={0.5} />
-        </mesh>
-        <mesh geometry={geometry} position={[115, 0, 0]} scale={[-1, 1, 1]}>
-          <meshPhysicalMaterial color="#E5B760" roughness={0.35} metalness={0.4} transmission={0.1} thickness={0.5} />
-        </mesh>
+        <Brace position={[-115, 0, 0]} />
+        <Brace position={[115, 0, 0]} mirror />
       </group>
     </Float>
   );
