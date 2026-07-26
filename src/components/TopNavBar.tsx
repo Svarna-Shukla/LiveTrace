@@ -1,16 +1,22 @@
 "use client";
 
 import clsx from "clsx";
+import Link from "next/link";
 import {
   GitCompare,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
   Menu,
   Moon,
   RotateCcw,
+  Save,
   ScrollText,
   Share2,
   Sparkles,
   Sun,
   UploadCloud,
+  UserCircle2,
   Wifi,
   WifiOff,
   Zap,
@@ -28,6 +34,11 @@ interface TopNavBarProps {
   onCompareArchitecture: () => void;
   onToggleSidebar: () => void;
   onToggleLog: () => void;
+  userLabel?: string | null;
+  onOpenAuth?: () => void;
+  onSignOut?: () => void;
+  onSaveWorkflow?: () => void;
+  saving?: boolean;
 }
 
 export default function TopNavBar({
@@ -41,6 +52,11 @@ export default function TopNavBar({
   onCompareArchitecture,
   onToggleSidebar,
   onToggleLog,
+  userLabel,
+  onOpenAuth,
+  onSignOut,
+  onSaveWorkflow,
+  saving,
 }: TopNavBarProps) {
   const { theme, toggleTheme } = useTheme();
 
@@ -128,6 +144,17 @@ export default function TopNavBar({
           <Share2 size={13} />
           <span className="hidden sm:inline">Share Diagram</span>
         </button>
+        {onSaveWorkflow && (
+          <button
+            onClick={onSaveWorkflow}
+            disabled={disabled || saving}
+            title="Save Workflow"
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900 sm:px-3"
+          >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            <span className="hidden sm:inline">Save Workflow</span>
+          </button>
+        )}
         <button
           onClick={onAudit}
           title="AI Code Audit"
@@ -145,6 +172,35 @@ export default function TopNavBar({
           <UploadCloud size={14} />
           <span className="hidden sm:inline">Upload / Paste Codebase</span>
         </button>
+
+        {userLabel ? (
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/dashboard"
+              title="Dashboard"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <LayoutDashboard size={14} />
+            </Link>
+            <button
+              onClick={onSignOut}
+              title={`Sign out (${userLabel})`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        ) : (
+          onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 sm:px-3"
+            >
+              <UserCircle2 size={13} />
+              <span className="hidden sm:inline">Sign In / Register</span>
+            </button>
+          )
+        )}
       </div>
     </header>
   );

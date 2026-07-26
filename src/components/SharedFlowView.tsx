@@ -60,7 +60,7 @@ export default function SharedFlowView({ flow }: SharedFlowViewProps) {
           </span>
         </div>
         <a
-          href="/dashboard"
+          href="/canvas"
           className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 dark:bg-violet-600 dark:hover:bg-violet-500"
         >
           Open Full App

@@ -463,6 +463,24 @@ export function useTraceSocket() {
     [running, simActive, setEdges, setNodes],
   );
 
+  // Restores a previously-saved workflow's graph shape as a custom graph.
+  // Scenario buttons aren't regenerated here — the saved node ids may not
+  // match a fresh re-parse of the source (e.g. multi-file prefixed ids), so
+  // we leave dynamicScenarios empty rather than risk buttons that target
+  // nodes which no longer exist on the canvas.
+  const loadSavedWorkflow = useCallback(
+    (savedNodes: Node<ServiceNodeData>[], savedEdges: Edge<TraceEdgeData>[], sourceCode: string | null) => {
+      if (running || simActive) return;
+      loadTopology(savedNodes, savedEdges, true);
+      multiFileRef.current = null;
+      setIngestedFiles([]);
+      setSelectedFilePath(null);
+      setLastIngestedSource(sourceCode);
+      setDynamicScenarios([]);
+    },
+    [running, simActive, loadTopology],
+  );
+
   const loadDemoTopology = useCallback(() => {
     if (running || simActive) return;
     loadTopology(initialNodes, initialEdges, false);
@@ -532,5 +550,6 @@ export function useTraceSocket() {
     dynamicScenarios,
     activeScenarioId,
     runDynamicScenario,
+    loadSavedWorkflow,
   };
 }

@@ -24,7 +24,7 @@ export default function ShareModal({ open, onClose, nodes, edges, log }: ShareMo
     if (!open || typeof window === "undefined") return "";
     const flow = buildSharedFlow(nodes, edges, log);
     const encoded = encodeSharedFlow(flow);
-    return `${window.location.origin}/dashboard?flow=${encoded}`;
+    return `${window.location.origin}/canvas?flow=${encoded}`;
   }, [open, nodes, edges, log]);
 
   if (!open) return null;
